@@ -1,27 +1,27 @@
-# ⚡ EV Power Cost Calculator
+# Power Cost Calculator
 
-Calculate how much your EV is actually costing you to charge, based on your real half-hourly power usage data.
+Calculate how much you're actually paying for electricity, based on your detailed half-hourly power usage data.
 
-**Live version:** [evpowcalculator.vercel.app](https://evpowcalculator.vercel.app)
+**Live version:** [horsethecompanion.github.io/ev-power-calculator](https://horsethecompanion.github.io/ev-power-calculator)
 
 ## How It Works
 
-1. Export your half-hourly power data from your NZ electricity retailer as a CSV
+1. Export your half-hourly power data from your electricity retailer as a CSV
 2. Upload it to the calculator
 3. Set your plan's rates (flat, day/night, time-of-use, or free hours)
-4. See exactly what your EV is costing you — including supply charges and the EA levy
+4. See exactly what you've been paying — including supply charges and the EA levy
 
 ## Supported Retailers & Formats
 
-Tested with:
-- **Meridian** — standard ICPCONS export format
-
-Should work with any retailer that provides:
+Works with any NZ retailer that provides:
 - A timestamp column (date + time per reading)
 - A kWh consumption column
 - Half-hourly (or similar) intervals
 
-If your retailer's CSV has a different column layout, [let me know](https://www.youtube.com/@ev-tim) and I'll add support.
+Known to work with:
+- **Meridian** — standard ICPCONS export format
+
+If your retailer's CSV has a different layout, [let me know](https://www.youtube.com/@ev-tim) and I can add support.
 
 ## Features
 
@@ -29,18 +29,9 @@ If your retailer's CSV has a different column layout, [let me know](https://www.
 - **Daily supply charge**: configurable per day, week, or month
 - **EA Levy**: separate line item, fractional ¢/kWh supported
 - **Plan comparison**: save one result and compare two plans side-by-side
-- **Works offline**: runs entirely in the browser, no server needed
-
-## For Developers
-
-Single HTML file — no build step, no dependencies to install.
-Drop it on any static host (Vercel, Netlify, GitHub Pages, anything).
-
-```bash
-# Just open it
-open index.html
-```
+- **Light / dark mode**
+- **Works offline**: runs entirely in the browser — no server needed
 
 ## Credits
 
-Made by [EV Tim](https://www.youtube.com/@ev-tim) — the Christchurch Kiwis EV channel.
+Made by [EV Tim](https://www.youtube.com/@ev-tim) — the NZ EV channel.
