@@ -310,6 +310,28 @@
   <div class="card">
     <div class="card-title">Step 2 — Configure Your Plan</div>
 
+    <!-- Plan source: manual or from Billy -->
+    <div id="billySection">
+      <label for="planSource">How do you want to enter plan details?</label>
+      <select id="planSource">
+        <option value="manual">Enter plan details manually</option>
+        <option value="billy">Import from Billy URL</option>
+      </select>
+      <div id="billyUrlSection" class="hidden" style="margin-top:0.75rem">
+        <input type="url" id="billyUrlInput" placeholder="Paste your Billy comparison URL here..." style="width:100%;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem">
+        <div id="billyFetchStatus" style="font-size:0.8rem;margin-top:0.4rem;min-height:1.2rem;color:var(--text-dim)"></div>
+        <div id="billyPlanSelector" class="hidden" style="margin-top:0.75rem">
+          <label for="billyPlanSelect">Select a plan from Billy:</label>
+          <select id="billyPlanSelect" style="width:100%;padding:0.5rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text)"></select>
+        </div>
+        <div id="billyAutoFillWarning" class="hidden" style="margin-top:0.75rem;background:rgba(251,191,36,0.1);border:1px solid var(--yellow);border-radius:8px;padding:0.75rem;color:var(--yellow);font-size:0.82rem">
+          <strong>⚠️ Auto-filled from Billy — please verify the time periods and rates are correct before calculating.</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
     <label for="planType">Plan Type</label>
     <select id="planType">
       <option value="flat">Flat Rate (single rate all day)</option>
@@ -357,15 +379,32 @@
       <div id="weekdayPeriods"></div>
       <button class="btn btn-secondary" style="margin-top:0.5rem;width:100%" id="addWeekdayPeriod">+ Add Period</button>
 
-      <div class="checkbox-row">
-        <input type="checkbox" id="weekendDiffers">
-        <label for="weekendDiffers">Weekend (Sat/Sun) has different rates</label>
-      </div>
+      <div class="section-label" style="margin-top:1rem">Weekend Rates</div>
+      <select id="weekendMode" style="width:100%;padding:0.5rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text)">
+        <option value="same">Same as weekdays (Sat + Sun use weekday periods)</option>
+        <option value="combined">All weekend the same (Sat and Sun share one set of periods)</option>
+        <option value="separate">Saturday and Sunday have different rates</option>
+      </select>
 
-      <div id="weekendPeriodsContainer" class="hidden">
-        <div class="section-label">Weekend Rate Periods</div>
+      <!-- Combined weekend periods (Sat=Sun, different from weekdays) -->
+      <div id="weekendCombinedContainer" class="hidden" style="margin-top:0.75rem">
+        <div class="section-label">Weekend Rate Periods (Sat + Sun)</div>
         <div id="weekendPeriods"></div>
         <button class="btn btn-secondary" style="margin-top:0.5rem;width:100%" id="addWeekendPeriod">+ Add Period</button>
+      </div>
+
+      <!-- Separate Saturday periods -->
+      <div id="saturdayContainer" class="hidden" style="margin-top:0.75rem">
+        <div class="section-label">Saturday Rate Periods</div>
+        <div id="saturdayPeriods"></div>
+        <button class="btn btn-secondary" style="margin-top:0.5rem;width:100%" id="addSaturdayPeriod">+ Add Period</button>
+      </div>
+
+      <!-- Separate Sunday periods -->
+      <div id="sundayContainer" class="hidden" style="margin-top:0.75rem">
+        <div class="section-label">Sunday Rate Periods</div>
+        <div id="sundayPeriods"></div>
+        <button class="btn btn-secondary" style="margin-top:0.5rem;width:100%" id="addSundayPeriod">+ Add Period</button>
       </div>
     </div>
 
@@ -627,17 +666,38 @@ function initTOU() {
     addWeekdayPeriod('07:00', '23:00', 28.5);
     addWeekdayPeriod('23:00', '07:00', 18.0);
   }
-  const wDiffers = document.getElementById('weekendDiffers');
-  const wEndContainer = document.getElementById('weekendPeriodsContainer');
-  wDiffers.onchange = () => {
-    wEndContainer.classList.toggle('hidden', !wDiffers.checked);
-    if (wDiffers.checked && document.getElementById('weekendPeriods').children.length === 0) {
+
+  // Weekend mode selector
+  const wMode = document.getElementById('weekendMode');
+  const wCombined = document.getElementById('weekendCombinedContainer');
+  const wSat = document.getElementById('saturdayContainer');
+  const wSun = document.getElementById('sundayContainer');
+
+  function updateWeekendUI() {
+    const mode = wMode.value;
+    wCombined.classList.toggle('hidden', mode !== 'combined');
+    wSat.classList.toggle('hidden', mode !== 'separate');
+    wSun.classList.toggle('hidden', mode !== 'separate');
+    if (mode === 'combined' && document.getElementById('weekendPeriods').children.length === 0) {
       addWeekendPeriod('07:00', '23:00', 28.5);
       addWeekendPeriod('23:00', '07:00', 18.0);
     }
-  };
+    if (mode === 'separate' && document.getElementById('saturdayPeriods').children.length === 0) {
+      addSaturdayPeriod('07:00', '23:00', 28.5);
+      addSaturdayPeriod('23:00', '07:00', 18.0);
+      addSundayPeriod('07:00', '23:00', 28.5);
+      addSundayPeriod('23:00', '07:00', 18.0);
+    }
+  }
+
+  wMode.addEventListener('change', updateWeekendUI);
   document.getElementById('addWeekdayPeriod').onclick = () => addWeekdayPeriod('00:00', '00:00', 0);
   document.getElementById('addWeekendPeriod').onclick = () => addWeekendPeriod('00:00', '00:00', 0);
+  document.getElementById('addSaturdayPeriod').onclick = () => addSaturdayPeriod('00:00', '00:00', 0);
+  document.getElementById('addSundayPeriod').onclick = () => addSundayPeriod('00:00', '00:00', 0);
+
+  // Restore visibility if coming back to TOU after initial setup
+  updateWeekendUI();
 }
 
 function addWeekdayPeriod(start, end, rate) {
@@ -667,6 +727,36 @@ function addWeekendPeriod(start, end, rate) {
     <button class="btn btn-danger we-del">✕</button>`;
   container.appendChild(div);
   div.querySelector('.we-del').onclick = () => div.remove();
+  div.querySelectorAll('input').forEach(inp => inp.addEventListener('change', updatePlanSummary));
+}
+
+function addSaturdayPeriod(start, end, rate) {
+  const container = document.getElementById('saturdayPeriods');
+  const id = 'sa' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'period-row';
+  div.innerHTML = `
+    <div><label>Start</label><input type="time" value="${start}" class="sa-start"></div>
+    <div><label>End</label><input type="time" value="${end}" class="sa-end"></div>
+    <div><label>Rate (¢/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="sa-rate"></div>
+    <button class="btn btn-danger sa-del">✕</button>`;
+  container.appendChild(div);
+  div.querySelector('.sa-del').onclick = () => div.remove();
+  div.querySelectorAll('input').forEach(inp => inp.addEventListener('change', updatePlanSummary));
+}
+
+function addSundayPeriod(start, end, rate) {
+  const container = document.getElementById('sundayPeriods');
+  const id = 'su' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'period-row';
+  div.innerHTML = `
+    <div><label>Start</label><input type="time" value="${start}" class="su-start"></div>
+    <div><label>End</label><input type="time" value="${end}" class="su-end"></div>
+    <div><label>Rate (¢/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="su-rate"></div>
+    <button class="btn btn-danger su-del">✕</button>`;
+  container.appendChild(div);
+  div.querySelector('.su-del').onclick = () => div.remove();
   div.querySelectorAll('input').forEach(inp => inp.addEventListener('change', updatePlanSummary));
 }
 
@@ -712,10 +802,10 @@ function updatePlanSummary() {
   }
   if (type === 'tou') {
     const periods = getWeekdayPeriods();
-    const weekendPeriods = getWeekendPeriods();
-    const wDiffers = document.getElementById('weekendDiffers').checked;
+    const weekendMode = document.getElementById('weekendMode')?.value || 'same';
     html += `${periods.length} weekday period(s)`;
-    if (wDiffers) html += ` · ${weekendPeriods.length} weekend period(s)`;
+    if (weekendMode === 'combined') html += ` · ${getWeekendPeriods().length} weekend period(s) (Sat+Sun combined)`;
+    else if (weekendMode === 'separate') html += ` · ${getSaturdayPeriods().length} Sat period(s) · ${getSundayPeriods().length} Sun period(s)`;
     else html += ' · same rates on weekends';
   }
   if (type === 'freehours') {
@@ -779,7 +869,15 @@ function getRateForTimestamp(ts) {
   }
 
   if (type === 'tou') {
-    const periods = isWeekend ? getWeekendPeriods() : getWeekdayPeriods();
+    const weekendMode = document.getElementById('weekendMode')?.value || 'same';
+    let periods;
+    if (weekendMode === 'separate') {
+      periods = dayOfWeek === 6 ? getSaturdayPeriods()
+           : dayOfWeek === 0 ? getSundayPeriods()
+           : getWeekdayPeriods();
+    } else {
+      periods = isWeekend ? getWeekendPeriods() : getWeekdayPeriods();
+    }
     for (const p of periods) {
       const pStart = timeToMinutes(p.start);
       const pEnd = timeToMinutes(p.end);
@@ -821,11 +919,36 @@ function getWeekdayPeriods() {
 }
 
 function getWeekendPeriods() {
+  // Returns weekend periods for 'combined' mode; for 'same' mode caller uses weekday periods directly
+  const mode = document.getElementById('weekendMode')?.value || 'same';
+  if (mode === 'same') return getWeekdayPeriods(); // same as weekdays
   const rows = document.querySelectorAll('#weekendPeriods .period-row');
   return Array.from(rows).map(row => ({
     start: row.querySelector('.we-start').value,
     end: row.querySelector('.we-end').value,
     rate: parseFloat(row.querySelector('.we-rate').value) || 0
+  }));
+}
+
+function getSaturdayPeriods() {
+  const mode = document.getElementById('weekendMode')?.value || 'same';
+  if (mode === 'same') return getWeekdayPeriods();
+  const rows = document.querySelectorAll('#saturdayPeriods .period-row');
+  return Array.from(rows).map(row => ({
+    start: row.querySelector('.sa-start').value,
+    end: row.querySelector('.sa-end').value,
+    rate: parseFloat(row.querySelector('.sa-rate').value) || 0
+  }));
+}
+
+function getSundayPeriods() {
+  const mode = document.getElementById('weekendMode')?.value || 'same';
+  if (mode === 'same') return getWeekdayPeriods();
+  const rows = document.querySelectorAll('#sundayPeriods .period-row');
+  return Array.from(rows).map(row => ({
+    start: row.querySelector('.su-start').value,
+    end: row.querySelector('.su-end').value,
+    rate: parseFloat(row.querySelector('.su-rate').value) || 0
   }));
 }
 
@@ -1044,8 +1167,7 @@ function validatePeriods() {
   if (type !== 'tou') return true;
 
   const weekdayPeriods = getWeekdayPeriods();
-  const weekendPeriods = getWeekendPeriods();
-  const weekendDiffers = document.getElementById('weekendDiffers').checked;
+  const weekendMode = document.getElementById('weekendMode')?.value || 'same';
 
   // Remove existing error
   const existing = document.getElementById('touOverlapError');
@@ -1055,8 +1177,14 @@ function validatePeriods() {
 
   if (periodsOverlap(weekdayPeriods)) {
     errorMsg = '⚠️ Your weekday periods overlap. Each time period should be covered by only one rate.';
-  } else if (weekendDiffers && periodsOverlap(weekendPeriods)) {
+  } else if (weekendMode === 'combined' && periodsOverlap(getWeekendPeriods())) {
     errorMsg = '⚠️ Your weekend periods overlap. Each time period should be covered by only one rate.';
+  } else if (weekendMode === 'separate') {
+    if (periodsOverlap(getSaturdayPeriods())) {
+      errorMsg = '⚠️ Your Saturday periods overlap. Each time period should be covered by only one rate.';
+    } else if (periodsOverlap(getSundayPeriods())) {
+      errorMsg = '⚠️ Your Sunday periods overlap. Each time period should be covered by only one rate.';
+    }
   }
 
   if (errorMsg) {
@@ -1073,10 +1201,207 @@ function validatePeriods() {
 // Check periods whenever they change
 document.getElementById('weekdayPeriods')?.addEventListener('input', validatePeriods);
 document.getElementById('weekendPeriods')?.addEventListener('input', validatePeriods);
-document.getElementById('weekendDiffers')?.addEventListener('change', validatePeriods);
+document.getElementById('saturdayPeriods')?.addEventListener('input', validatePeriods);
+document.getElementById('sundayPeriods')?.addEventListener('input', validatePeriods);
 document.getElementById('addWeekdayPeriod')?.addEventListener('click', () => {
   setTimeout(validatePeriods, 0);
 });
+
+// ─── Billy URL Import ─────────────────────────────────────────────────────────
+const planSourceSelect = document.getElementById('planSource');
+const billyUrlSection = document.getElementById('billyUrlSection');
+const billyUrlInput = document.getElementById('billyUrlInput');
+const billyFetchStatus = document.getElementById('billyFetchStatus');
+const billyPlanSelector = document.getElementById('billyPlanSelector');
+const billyPlanSelect = document.getElementById('billyPlanSelect');
+const billyAutoFillWarning = document.getElementById('billyAutoFillWarning');
+
+planSourceSelect.addEventListener('change', () => {
+  const isBilly = planSourceSelect.value === 'billy';
+  billyUrlSection.classList.toggle('hidden', !isBilly);
+  if (!isBilly) {
+    billyFetchStatus.textContent = '';
+    billyPlanSelector.classList.add('hidden');
+    billyAutoFillWarning.classList.add('hidden');
+    billyPlanSelect.innerHTML = '';
+  }
+});
+
+let billyPlansCache = [];
+
+billyUrlInput.addEventListener('input', debounce(async () => {
+  const url = billyUrlInput.value.trim();
+  if (!url || !url.includes('/compare/')) {
+    billyFetchStatus.textContent = '';
+    billyPlanSelector.classList.add('hidden');
+    billyAutoFillWarning.classList.add('hidden');
+    billyPlansCache = [];
+    return;
+  }
+  billyFetchStatus.textContent = 'Fetching plans from Billy...';
+  billyPlanSelector.classList.add('hidden');
+  billyAutoFillWarning.classList.add('hidden');
+  billyPlansCache = [];
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const html = await resp.text();
+    billyPlansCache = extractBillyPlans(html);
+    if (billyPlansCache.length === 0) {
+      billyFetchStatus.textContent = 'Could not find plans on this page. Make sure you are on a Billy comparison results page.';
+      return;
+    }
+    billyPlanSelect.innerHTML = '<option value="">— Select a plan —</option>' +
+      billyPlansCache.map((p, i) => `<option value="${i}">${p.name} (${p.price}/month)</option>`).join('');
+    billyPlanSelector.classList.remove('hidden');
+    billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans. Select one to auto-fill.`;
+  } catch(e) {
+    billyFetchStatus.textContent = 'Could not fetch that URL. Make sure the Billy page is publicly accessible.';
+  }
+}));
+
+billyPlanSelect.addEventListener('change', () => {
+  const idx = parseInt(billyPlanSelect.value);
+  if (isNaN(idx)) {
+    billyAutoFillWarning.classList.add('hidden');
+    return;
+  }
+  const plan = billyPlansCache[idx];
+  autoFillFromBillyPlan(plan);
+  billyAutoFillWarning.classList.remove('hidden');
+});
+
+function extractBillyPlans(html) {
+  // Extract plan names and descriptions from the Billy comparison page
+  // Plans appear in data attributes or structured HTML
+  const plans = [];
+  // Try JSON data attributes first
+  const jsonMatches = html.match(/"name"\s*:\s*"([^"]+)"/g) || [];
+  // Try scraping from plan tiles
+  const nameMatches = html.match(/<h3[^>]*>([^<]+)<\/h3>/g) || [];
+  // Look for plan price patterns
+  const priceMatches = html.match(/\$\d+/g) || [];
+  // More targeted: look for the Next.js data
+  const nextDataMatch = html.match(/__NEXT_DATA__[^>]*>(.*?)<\/script>/s);
+  let planData = [];
+  if (nextDataMatch) {
+    try {
+      const parsed = JSON.parse(nextDataMatch[1]);
+      // Walk the JSON to find plan objects
+      planData = findPlansInObject(parsed);
+    } catch(e) {}
+  }
+  if (planData.length > 0) {
+    planData.forEach(p => {
+      if (p.name && p.price) {
+        plans.push({ name: p.name, price: p.price, description: p.description || '' });
+      }
+    });
+  }
+  return plans;
+}
+
+function findPlansInObject(obj, depth = 0) {
+  if (depth > 20) return [];
+  if (Array.isArray(obj)) {
+    let result = [];
+    for (const item of obj) result = result.concat(findPlansInObject(item, depth + 1));
+    return result;
+  }
+  if (obj && typeof obj === 'object') {
+    // A plan object has name + price (or monthlyCost or similar)
+    if (obj.name && (obj.price || obj.monthlyCost || obj.estimatedCost)) {
+      return [{
+        name: obj.name,
+        price: obj.price || obj.monthlyCost || obj.estimatedCost || '',
+        description: obj.description || obj.tagline || ''
+      }];
+    }
+    let result = [];
+    for (const key of Object.keys(obj)) result = result.concat(findPlansInObject(obj[key], depth + 1));
+    return result;
+  }
+  return [];
+}
+
+function parseBillyDescription(description) {
+  // Parse plan description to extract rate periods and guess plan type
+  const desc = (description || '').toLowerCase();
+  const result = { planType: 'tou', periods: [], weekendMode: 'same' };
+
+  // Free Sunday detection
+  if (desc.includes('free sundays') || desc.includes('free sunday')) {
+    result.planType = 'freehours';
+    result.freeRanges = [{ start: '00:00', end: '23:59' }]; // All day Sunday free
+    return result;
+  }
+
+  // Night period detection
+  const nightMatch = desc.match(/(\d+)\s*(?:pm|am)\s*[-–to]+\s*(\d+)\s*(?:pm|am)/);
+  let nightStart = null, nightEnd = null;
+  if (desc.includes('night') || desc.includes('overnight')) {
+    // Try to extract night hours e.g. "9pm to 7am"
+    const nightTimes = desc.match(/(?:9|10|11|12)\s*(?:pm|am)\s*(?:[-–to]\s*)?(?:7|6|5|4|3|2|1)\s*(?:am|pm)/);
+    // Heuristic: common night periods
+    if (desc.includes('9pm') && desc.includes('7am')) { nightStart = '21:00'; nightEnd = '07:00'; }
+    else if (desc.includes('10pm') && desc.includes('7am')) { nightStart = '22:00'; nightEnd = '07:00'; }
+    else if (desc.includes('11pm') && desc.includes('7am')) { nightStart = '23:00'; nightEnd = '07:00'; }
+  }
+
+  // Peak/off-peak detection
+  const hasPeak = desc.includes('peak') || desc.includes('day rate') || desc.includes('peak rate');
+  const hasOffPeak = desc.includes('off-peak') || desc.includes('night rate') || desc.includes('shoulder');
+
+  if (nightStart && nightEnd) {
+    if (hasPeak || hasOffPeak) {
+      result.planType = 'tou';
+      result.periods = [
+        { start: nightStart, end: nightEnd, rate: 18.0, label: 'Night' },
+        { start: nightEnd, end: nightStart, rate: 28.5, label: 'Day' }
+      ];
+    } else {
+      result.planType = 'daynight';
+      result.nightStart = nightStart;
+      result.nightEnd = nightEnd;
+      result.dayRate = 28.5;
+      result.nightRate = 18.0;
+    }
+  } else if (hasPeak && hasOffPeak) {
+    result.planType = 'tou';
+    result.periods = [
+      { start: '07:00', end: '23:00', rate: 28.5, label: 'Peak' },
+      { start: '23:00', end: '07:00', rate: 18.0, label: 'Off-peak' }
+    ];
+  }
+
+  return result;
+}
+
+function autoFillFromBillyPlan(plan) {
+  const parsed = parseBillyDescription(plan.description);
+  // Set plan type
+  planType.value = parsed.planType;
+  planType.dispatchEvent(new Event('change'));
+
+  if (parsed.planType === 'daynight' && parsed.nightStart) {
+    document.getElementById('dayRate').value = parsed.dayRate;
+    document.getElementById('nightRate').value = parsed.nightRate;
+    document.getElementById('nightStart').value = parsed.nightStart;
+    document.getElementById('nightEnd').value = parsed.nightEnd;
+  } else if (parsed.planType === 'tou' && parsed.periods.length > 0) {
+    // Clear existing and add parsed periods
+    const wContainer = document.getElementById('weekdayPeriods');
+    wContainer.innerHTML = '';
+    parsed.periods.forEach(p => addWeekdayPeriod(p.start, p.end, p.rate));
+    document.getElementById('addWeekdayPeriod').onclick = () => addWeekdayPeriod('00:00', '00:00', 0);
+  }
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 initTOU();
