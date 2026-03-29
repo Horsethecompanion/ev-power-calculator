@@ -277,8 +277,8 @@
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:0.75rem">
-      <button id="themeToggle" title="Toggle light/dark mode" style="background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:1.2rem;padding:0.25rem;transition:color 0.2s">
-        <span id="themeIcon">☀️</span>
+      <button id="themeToggle" title="Toggle light/dark mode" style="background:none;border:1px solid var(--border);cursor:pointer;color:var(--text-dim);font-size:0.75rem;padding:0.3rem 0.6rem;border-radius:6px;transition:all 0.2s">
+        <span id="themeIcon">Light mode</span>
       </button>
       <a href="https://www.youtube.com/@ev-tim" target="_blank" rel="noopener" class="brand-channel">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2c-.3-1-1-1.8-2-2.1C19.8 3.5 12 3.5 12 3.5s-7.8 0-9.5.6c-1 .3-1.7 1.1-2 2.1-.5 1.6-.5 5-.5 5s0 3.4.5 5c.3 1 1 1.8 2 2.1C4.2 20.5 12 20.5 12 20.5s7.8 0 9.5-.6c1-.3 1.7-1.1 2-2.1.5-1.6.5-5 .5-5s0-3.4-.5-5zM9.6 15.5V8.4l6.4 3.6-6.4 3.5z"/></svg>
@@ -287,7 +287,7 @@
     </div>
   </div>
 
-  <h1>EV Power Cost Calculator</h1>
+  <h1>Power Cost Calculator</h1>
   <p class="subtitle">Upload your Detailed Consumption Data CSV, set your plan rates, see your actual power cost.</p>
 
   <!-- STEP 1: UPLOAD -->
@@ -998,7 +998,7 @@ const themeIcon = document.getElementById('themeIcon');
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
-  themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+  themeIcon.textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
   localStorage.setItem('evCalcTheme', theme);
 }
 
@@ -1015,21 +1015,24 @@ try {
 
 // ─── TOU Overlap Validation ───────────────────────────────────────────────
 function periodsOverlap(periods) {
-  // Returns true if any two periods overlap (ignoring overnight for simplicity)
-  // For each pair of periods, check if they overlap in time-of-day
+  // Returns true if any two periods overlap in time-of-day.
+  // Overnight periods (crossing midnight) are expanded to the next day for comparison.
+  // e.g. 21:00→07:00 becomes 21:00→31:00 (where 31:00 = 07:00 next day)
   for (let i = 0; i < periods.length; i++) {
     for (let j = i + 1; j < periods.length; j++) {
       const a = periods[i];
       const b = periods[j];
-      const aStart = timeToMinutes(a.start);
-      const aEnd = timeToMinutes(a.end);
-      const bStart = timeToMinutes(b.start);
-      const bEnd = timeToMinutes(b.end);
+      let aStart = timeToMinutes(a.start);
+      let aEnd = timeToMinutes(a.end);
+      let bStart = timeToMinutes(b.start);
+      let bEnd = timeToMinutes(b.end);
 
-      // Skip overnight periods for overlap check (they span midnight)
-      if (aStart > aEnd || bStart > bEnd) continue;
+      // Expand overnight periods to the next day (add 24h to end)
+      if (aEnd < aStart) aEnd += 24 * 60;
+      if (bEnd < bStart) bEnd += 24 * 60;
 
-      // Check normal overlap
+      // Now check if a and b overlap on the same timeline
+      // a overlaps b if aStart < bEnd AND aEnd > bStart
       if (aStart < bEnd && aEnd > bStart) return true;
     }
   }
@@ -1068,9 +1071,12 @@ function validatePeriods() {
 }
 
 // Check periods whenever they change
-document.getElementById('weekdayPeriods')?.addEventListener('change', validatePeriods);
-document.getElementById('weekendPeriods')?.addEventListener('change', validatePeriods);
+document.getElementById('weekdayPeriods')?.addEventListener('input', validatePeriods);
+document.getElementById('weekendPeriods')?.addEventListener('input', validatePeriods);
 document.getElementById('weekendDiffers')?.addEventListener('change', validatePeriods);
+document.getElementById('addWeekdayPeriod')?.addEventListener('click', () => {
+  setTimeout(validatePeriods, 0);
+});
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 initTOU();
