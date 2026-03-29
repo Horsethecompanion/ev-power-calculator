@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EV Power Cost Calculator | EV Tim</title>
+  <title>Power Cost Calculator | EV Tim</title>
   <meta name="description" content="Calculate your real EV charging costs from half-hourly power data. Supports Meridian, Genesis, Electric Kiwi, and all NZ power plans.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <style>
-    :root {
+    :root, [data-theme="dark"] {
       --bg: #0f1117;
       --card: #1a1d27;
       --border: #2a2d3a;
@@ -20,6 +20,19 @@
       --red: #f87171;
       --yellow: #fbbf24;
       --brand: #ff6b35;
+    }
+    [data-theme="light"] {
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --border: #dcdcdc;
+      --text: #1a1a2e;
+      --text-dim: #6b7280;
+      --accent: #0891b2;
+      --accent-dim: #a5f3fc;
+      --green: #059669;
+      --red: #dc2626;
+      --yellow: #d97706;
+      --brand: #e55d25;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -263,14 +276,19 @@
         <div style="font-size:0.7rem;color:var(--text-dim)">Power Cost Calculator</div>
       </div>
     </div>
-    <a href="https://www.youtube.com/@ev-tim" target="_blank" rel="noopener" class="brand-channel">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2c-.3-1-1-1.8-2-2.1C19.8 3.5 12 3.5 12 3.5s-7.8 0-9.5.6c-1 .3-1.7 1.1-2 2.1-.5 1.6-.5 5-.5 5s0 3.4.5 5c.3 1 1 1.8 2 2.1C4.2 20.5 12 20.5 12 20.5s7.8 0 9.5-.6c1-.3 1.7-1.1 2-2.1.5-1.6.5-5 .5-5s0-3.4-.5-5zM9.6 15.5V8.4l6.4 3.6-6.4 3.5z"/></svg>
-      @ev-tim on YouTube
-    </a>
+    <div style="display:flex;align-items:center;gap:0.75rem">
+      <button id="themeToggle" title="Toggle light/dark mode" style="background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:1.2rem;padding:0.25rem;transition:color 0.2s">
+        <span id="themeIcon">☀️</span>
+      </button>
+      <a href="https://www.youtube.com/@ev-tim" target="_blank" rel="noopener" class="brand-channel">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2c-.3-1-1-1.8-2-2.1C19.8 3.5 12 3.5 12 3.5s-7.8 0-9.5.6c-1 .3-1.7 1.1-2 2.1-.5 1.6-.5 5-.5 5s0 3.4.5 5c.3 1 1 1.8 2 2.1C4.2 20.5 12 20.5 12 20.5s7.8 0 9.5-.6c1-.3 1.7-1.1 2-2.1.5-1.6.5-5 .5-5s0-3.4-.5-5zM9.6 15.5V8.4l6.4 3.6-6.4 3.5z"/></svg>
+        @ev-tim
+      </a>
+    </div>
   </div>
 
   <h1>EV Power Cost Calculator</h1>
-  <p class="subtitle">Upload your half-hourly power CSV, set your plan rates, see your actual EV charging cost.</p>
+  <p class="subtitle">Upload your Detailed Consumption Data CSV, set your plan rates, see your actual power cost.</p>
 
   <!-- STEP 1: UPLOAD -->
   <div class="card">
@@ -824,6 +842,10 @@ document.getElementById('calculateBtn').addEventListener('click', calculate);
 
 function calculate() {
   calcError.innerHTML = '';
+  if (!validatePeriods()) {
+    calcError.innerHTML = '<div class="error-msg">Fix the overlapping rate periods before calculating.</div>';
+    return;
+  }
   if (csvData.length === 0) {
     calcError.innerHTML = '<div class="error-msg">Please upload a CSV first.</div>';
     return;
@@ -969,6 +991,86 @@ function showComparison() {
       </div>
     </div>`;
 }
+
+// ─── Theme Toggle ───────────────────────────────────────────────────────────
+const themeToggle = document.getElementById('themeToggle');
+const themeIcon = document.getElementById('themeIcon');
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem('evCalcTheme', theme);
+}
+
+themeToggle.addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
+// Apply saved theme or default dark
+try {
+  const savedTheme = localStorage.getItem('evCalcTheme') || 'dark';
+  applyTheme(savedTheme);
+} catch(e) { applyTheme('dark'); }
+
+// ─── TOU Overlap Validation ───────────────────────────────────────────────
+function periodsOverlap(periods) {
+  // Returns true if any two periods overlap (ignoring overnight for simplicity)
+  // For each pair of periods, check if they overlap in time-of-day
+  for (let i = 0; i < periods.length; i++) {
+    for (let j = i + 1; j < periods.length; j++) {
+      const a = periods[i];
+      const b = periods[j];
+      const aStart = timeToMinutes(a.start);
+      const aEnd = timeToMinutes(a.end);
+      const bStart = timeToMinutes(b.start);
+      const bEnd = timeToMinutes(b.end);
+
+      // Skip overnight periods for overlap check (they span midnight)
+      if (aStart > aEnd || bStart > bEnd) continue;
+
+      // Check normal overlap
+      if (aStart < bEnd && aEnd > bStart) return true;
+    }
+  }
+  return false;
+}
+
+function validatePeriods() {
+  const type = planType.value;
+  if (type !== 'tou') return true;
+
+  const weekdayPeriods = getWeekdayPeriods();
+  const weekendPeriods = getWeekendPeriods();
+  const weekendDiffers = document.getElementById('weekendDiffers').checked;
+
+  // Remove existing error
+  const existing = document.getElementById('touOverlapError');
+  if (existing) existing.remove();
+
+  let errorMsg = '';
+
+  if (periodsOverlap(weekdayPeriods)) {
+    errorMsg = '⚠️ Your weekday periods overlap. Each time period should be covered by only one rate.';
+  } else if (weekendDiffers && periodsOverlap(weekendPeriods)) {
+    errorMsg = '⚠️ Your weekend periods overlap. Each time period should be covered by only one rate.';
+  }
+
+  if (errorMsg) {
+    const div = document.createElement('div');
+    div.id = 'touOverlapError';
+    div.style.cssText = 'background:rgba(248,113,113,0.1);border:1px solid var(--red);border-radius:8px;padding:0.75rem 1rem;color:var(--red);font-size:0.85rem;margin-top:0.75rem';
+    div.textContent = errorMsg;
+    document.getElementById('touConfig').appendChild(div);
+    return false;
+  }
+  return true;
+}
+
+// Check periods whenever they change
+document.getElementById('weekdayPeriods')?.addEventListener('change', validatePeriods);
+document.getElementById('weekendPeriods')?.addEventListener('change', validatePeriods);
+document.getElementById('weekendDiffers')?.addEventListener('change', validatePeriods);
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 initTOU();
