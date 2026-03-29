@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EV Power Cost Calculator | EV Tim</title>
+  <meta name="description" content="Calculate your real EV charging costs from half-hourly power data. Supports Meridian, Genesis, Electric Kiwi, and all NZ power plans.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d27;
+      --border: #2a2d3a;
+      --text: #e4e4e7;
+      --text-dim: #71717a;
+      --accent: #22d3ee;
+      --accent-dim: #0e7490;
+      --green: #34d399;
+      --red: #f87171;
+      --yellow: #fbbf24;
+      --brand: #ff6b35;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand-left { display: flex; align-items: center; gap: 0.75rem; }
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--brand);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+    }
+    .brand-name { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+    .brand-name span { color: var(--brand); }
+    .brand-channel {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .brand-channel:hover { color: var(--accent); }
+    .brand-channel svg { width: 16px; height: 16px; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; color: var(--accent); }
+    .subtitle { color: var(--text-dim); margin-bottom: 2rem; font-size: 0.9rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 0.35rem;
+    }
+    input, select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    input[type="number"] { font-variant-numeric: tabular-nums; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+    .grid-4 { display: grid; grid-template-columns: 2fr 2fr 1fr 1fr; gap: 0.75rem; align-items: end; }
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #0f1117;
+      width: 100%;
+      padding: 0.75rem;
+      font-size: 1rem;
+    }
+    .btn-primary:hover { background: #67e8f9; }
+    .btn-secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+    .btn-secondary:hover { background: #3a3d4a; }
+    .btn-danger {
+      background: transparent;
+      color: var(--red);
+      padding: 0.35rem 0.6rem;
+      font-size: 0.75rem;
+    }
+    .btn-danger:hover { background: rgba(248, 113, 113, 0.1); }
+    .btn-add {
+      background: transparent;
+      border: 1px dashed var(--border);
+      color: var(--text-dim);
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .btn-add:hover { border-color: var(--accent); color: var(--accent); }
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(34, 211, 238, 0.04);
+    }
+    .upload-zone input { display: none; }
+    .upload-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+    .upload-text { color: var(--text-dim); font-size: 0.9rem; }
+    .upload-text strong { color: var(--accent); }
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: rgba(34, 211, 238, 0.08);
+      border: 1px solid var(--accent-dim);
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+    .file-info .filename { flex: 1; font-size: 0.9rem; font-weight: 600; }
+    .file-info .filesize { color: var(--text-dim); font-size: 0.8rem; }
+    .file-info .clear-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 0 0.25rem;
+    }
+    .file-info .clear-btn:hover { color: var(--red); }
+    .section-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 1rem 0 0.5rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .period-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 0.5rem;
+      align-items: end;
+      margin-bottom: 0.5rem;
+    }
+    .period-row label { font-size: 0.75rem; }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0.75rem 0;
+    }
+    .checkbox-row input[type="checkbox"] { width: auto; }
+    .checkbox-row label { margin: 0; color: var(--text); font-size: 0.85rem; }
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .result-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .result-card .value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .result-card .label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 0.25rem;
+    }
+    .result-card.highlight { border-color: var(--accent); }
+    .result-card.highlight .value { color: var(--accent); }
+    .result-card.green .value { color: var(--green); }
+    .error-msg {
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      color: var(--red);
+      font-size: 0.85rem;
+      margin-top: 1rem;
+    }
+    .hidden { display: none; }
+    .divider { height: 1px; background: var(--border); margin: 1rem 0; }
+    .plan-summary {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      margin-top: 1rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+    .plan-summary strong { color: var(--text); }
+    .spacer { height: 1rem; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Brand bar -->
+  <div class="brand-bar">
+    <div class="brand-left">
+      <div class="brand-icon">⚡</div>
+      <div>
+        <div class="brand-name">EV <span>Tim</span></div>
+        <div style="font-size:0.7rem;color:var(--text-dim)">Power Cost Calculator</div>
+      </div>
+    </div>
+    <a href="https://www.youtube.com/@ev-tim" target="_blank" rel="noopener" class="brand-channel">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2c-.3-1-1-1.8-2-2.1C19.8 3.5 12 3.5 12 3.5s-7.8 0-9.5.6c-1 .3-1.7 1.1-2 2.1-.5 1.6-.5 5-.5 5s0 3.4.5 5c.3 1 1 1.8 2 2.1C4.2 20.5 12 20.5 12 20.5s7.8 0 9.5-.6c1-.3 1.7-1.1 2-2.1.5-1.6.5-5 .5-5s0-3.4-.5-5zM9.6 15.5V8.4l6.4 3.6-6.4 3.5z"/></svg>
+      @ev-tim on YouTube
+    </a>
+  </div>
+
+  <h1>EV Power Cost Calculator</h1>
+  <p class="subtitle">Upload your half-hourly power CSV, set your plan rates, see your actual EV charging cost.</p>
+
+  <!-- STEP 1: UPLOAD -->
+  <div class="card">
+    <div class="card-title">Step 1 — Upload CSV</div>
+    <div class="upload-zone" id="dropZone">
+      <div class="upload-icon">📂</div>
+      <div class="upload-text">Drop your power CSV here, or <strong>click to browse</strong></div>
+      <input type="file" id="fileInput" accept=".csv">
+    </div>
+    <div class="file-info hidden" id="fileInfo">
+      <span class="filename" id="fileName"></span>
+      <span class="filesize" id="fileSize"></span>
+      <button class="clear-btn" id="clearFile" title="Remove file">✕</button>
+    </div>
+    <div id="uploadError"></div>
+  </div>
+
+  <!-- STEP 2: PLAN CONFIG -->
+  <div class="card">
+    <div class="card-title">Step 2 — Configure Your Plan</div>
+
+    <label for="planType">Plan Type</label>
+    <select id="planType">
+      <option value="flat">Flat Rate (single rate all day)</option>
+      <option value="daynight">Day/Night (two rates, overnight period)</option>
+      <option value="tou">Time-of-Use (multiple rate periods)</option>
+      <option value="freehours">Free Hours (rate-free periods during day)</option>
+    </select>
+
+    <div class="spacer"></div>
+
+    <!-- FLAT RATE -->
+    <div id="flatConfig" class="plan-config">
+      <label for="flatRate">Rate (cents/kWh)</label>
+      <input type="number" id="flatRate" placeholder="e.g. 28.5" step="0.01" min="0">
+    </div>
+
+    <!-- DAY/NIGHT -->
+    <div id="daynightConfig" class="plan-config hidden">
+      <div class="grid-2">
+        <div>
+          <label>Day Rate (cents/kWh)</label>
+          <input type="number" id="dayRate" placeholder="e.g. 32.0" step="0.01" min="0">
+        </div>
+        <div>
+          <label>Night Rate (cents/kWh)</label>
+          <input type="number" id="nightRate" placeholder="e.g. 18.0" step="0.01" min="0">
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="grid-2">
+        <div>
+          <label>Night Starts</label>
+          <input type="time" id="nightStart" value="23:00">
+        </div>
+        <div>
+          <label>Night Ends</label>
+          <input type="time" id="nightEnd" value="07:00">
+        </div>
+      </div>
+    </div>
+
+    <!-- TIME OF USE -->
+    <div id="touConfig" class="plan-config hidden">
+      <div class="section-label">Weekday Rate Periods</div>
+      <div id="weekdayPeriods"></div>
+      <button class="btn btn-secondary" style="margin-top:0.5rem;width:100%" id="addWeekdayPeriod">+ Add Period</button>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="weekendDiffers">
+        <label for="weekendDiffers">Weekend (Sat/Sun) has different rates</label>
+      </div>
+
+      <div id="weekendPeriodsContainer" class="hidden">
+        <div class="section-label">Weekend Rate Periods</div>
+        <div id="weekendPeriods"></div>
+        <button class="btn btn-secondary" style="margin-top:0.5rem;width:100%" id="addWeekendPeriod">+ Add Period</button>
+      </div>
+    </div>
+
+    <!-- FREE HOURS -->
+    <div id="freehoursConfig" class="plan-config hidden">
+      <label for="baseRate">Base Rate (cents/kWh)</label>
+      <input type="number" id="baseRate" placeholder="e.g. 28.5" step="0.01" min="0">
+      <div class="spacer"></div>
+      <div class="section-label">Free Hour Ranges</div>
+      <div id="freeHourRanges"></div>
+      <button class="btn btn-secondary" style="margin-top:0.5rem;width:100%" id="addFreeRange">+ Add Free Range</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- DAILY SUPPLY CHARGE -->
+    <div class="section-label">Daily Supply Charge</div>
+    <div class="grid-3">
+      <div>
+        <label>Amount</label>
+        <input type="number" id="dailyCharge" placeholder="e.g. 1.20" step="0.01" min="0">
+      </div>
+      <div>
+        <label>Unit</label>
+        <select id="dailyChargeUnit">
+          <option value="dollars">$ (dollars)</option>
+          <option value="cents">¢ (cents)</option>
+        </select>
+      </div>
+      <div>
+        <label>Per</label>
+        <select id="dailyChargePer">
+          <option value="day">per day</option>
+          <option value="week">per week</option>
+          <option value="month">per month (30 days)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- EA LEVY -->
+    <div class="section-label">EA Levy (Electricity Authority Levy)</div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="eaLevyEnabled">
+      <label for="eaLevyEnabled">Add EA Levy as separate line item</label>
+    </div>
+    <div id="eaLevyConfig" class="hidden">
+      <div class="grid-2">
+        <div>
+          <label>Levy Rate (cents/kWh)</label>
+          <input type="number" id="eaLevyRate" placeholder="e.g. 0.11" step="0.001" min="0">
+        </div>
+        <div>
+          <label style="color:var(--text-dim);font-size:0.75rem;margin-top:0.5rem">NZ EA levy is ~0.11 ¢/kWh (verify current rate)</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- PLAN NAME -->
+    <label for="planName">Plan Name (optional, for reference)</label>
+    <input type="text" id="planName" placeholder="e.g. Meridian Escape">
+
+    <div class="plan-summary hidden" id="planSummary"></div>
+  </div>
+
+  <!-- STEP 3: RESULTS -->
+  <div class="card">
+    <div class="card-title">Step 3 — Results</div>
+    <button class="btn btn-primary" id="calculateBtn" disabled>Calculate Cost</button>
+    <div id="calcError"></div>
+    <div id="resultsSection" class="hidden">
+      <div class="results-grid">
+        <div class="result-card highlight">
+          <div class="value" id="totalCost">$0.00</div>
+          <div class="label">Total Cost (NZD)</div>
+        </div>
+        <div class="result-card">
+          <div class="value" id="totalKwh">0</div>
+          <div class="label">Total kWh</div>
+        </div>
+        <div class="result-card">
+          <div class="value" id="effectiveRate">0</div>
+          <div class="label">Effective Rate (¢/kWh)</div>
+        </div>
+        <div class="result-card">
+          <div class="value" id="periodDays">0</div>
+          <div class="label">Days of Data</div>
+        </div>
+      </div>
+      <div id="breakdownSection"></div>
+    </div>
+  </div>
+
+  <!-- COMPARE MODE -->
+  <div class="card">
+    <div class="card-title">Compare Plans</div>
+    <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:1rem">Save your first calculation, then configure a second plan to compare side-by-side.</p>
+    <div class="grid-2">
+      <div>
+        <button class="btn btn-secondary" id="saveResult" style="width:100%">💾 Save Current Result</button>
+      </div>
+      <div>
+        <button class="btn btn-secondary" id="clearSaved" style="width:100%">🗑️ Clear Saved</button>
+      </div>
+    </div>
+    <div id="comparisonSection" class="hidden" style="margin-top:1rem"></div>
+  </div>
+
+  <!-- CSV FORMAT HELP -->
+  <div class="card" style="border-color:var(--accent-dim)">
+    <div class="card-title" style="color:var(--accent)">💡 Try It With Your Own Data</div>
+    <p style="color:var(--text-dim);font-size:0.85rem;line-height:1.7">
+      This calculator works with any NZ power company's half-hourly CSV export — not just Meridian.
+      The only columns it needs are: <strong style="color:var(--text)">a timestamp</strong>, and <strong style="color:var(--text)">kWh used</strong>.
+    </p>
+    <p style="color:var(--text-dim);font-size:0.85rem;line-height:1.7;margin-top:0.75rem">
+      Want to test it with your data? Drop it into the tool and set your rates. If the column layout differs, 
+      let me know and I can add support for your network's format.
+    </p>
+    <p style="color:var(--text-dim);font-size:0.8rem;margin-top:0.75rem">
+      💬 <a href="https://www.youtube.com/@ev-tim" target="_blank" style="color:var(--accent)">Hit me up on YouTube</a> with your CSV if you want help setting up the right plan config.
+    </p>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align:center;padding:1.5rem 0 0;color:var(--text-dim);font-size:0.75rem">
+    <a href="https://www.youtube.com/@ev-tim" target="_blank" style="color:var(--brand);text-decoration:none;font-weight:600">EV Tim</a>
+    · Open source, free to use
+  </div>
+
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let csvData = [];
+let savedResult = null;
+
+// ─── DOM ────────────────────────────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo = document.getElementById('fileInfo');
+const fileName = document.getElementById('fileName');
+const fileSize = document.getElementById('fileSize');
+const clearFile = document.getElementById('clearFile');
+const uploadError = document.getElementById('uploadError');
+const planType = document.getElementById('planType');
+const calculateBtn = document.getElementById('calculateBtn');
+const resultsSection = document.getElementById('resultsSection');
+const calcError = document.getElementById('calcError');
+const planSummary = document.getElementById('planSummary');
+
+// ─── Upload ──────────────────────────────────────────────────────────────────
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+clearFile.addEventListener('click', () => {
+  csvData = [];
+  fileInput.value = '';
+  fileInfo.classList.add('hidden');
+  dropZone.classList.remove('hidden');
+  calculateBtn.disabled = true;
+  resultsSection.classList.add('hidden');
+});
+
+function handleFile(file) {
+  uploadError.innerHTML = '';
+  if (!file.name.endsWith('.csv')) {
+    uploadError.innerHTML = '<div class="error-msg">Please upload a .csv file</div>';
+    return;
+  }
+  Papa.parse(file, {
+    skipEmptyLines: true,
+    complete: function(results) {
+      csvData = parseCSV(results.data);
+      if (csvData.length === 0) {
+        uploadError.innerHTML = '<div class="error-msg">No valid data rows found. Check that this is a Meridian half-hourly CSV.</div>';
+        return;
+      }
+      dropZone.classList.add('hidden');
+      fileInfo.classList.remove('hidden');
+      fileName.textContent = file.name;
+      fileSize.textContent = formatBytes(file.size) + ' · ' + csvData.length + ' readings';
+      calculateBtn.disabled = false;
+      resultsSection.classList.add('hidden');
+    },
+    error: function(err) {
+      uploadError.innerHTML = '<div class="error-msg">Parse error: ' + err.message + '</div>';
+    }
+  });
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1024/1024).toFixed(1) + ' MB';
+}
+
+function parseCSV(rows) {
+  // Skip HDR row and any non-DET rows
+  // Column H = index 7, Column J = index 9, Column M = index 12
+  const data = [];
+  for (const row of rows) {
+    if (!row || row.length < 13) continue;
+    const recType = row[0];
+    if (recType !== 'DET') continue;
+    const dayNight = String(row[7] || '').trim();
+    if (dayNight === 'D' || dayNight === 'N') continue; // skip daily aggregates
+    const periodStart = parseTimestamp(row[9]);
+    if (!periodStart) continue;
+    const kwh = parseFloat(row[12]);
+    if (isNaN(kwh) || kwh < 0) continue;
+    data.push({ ts: periodStart, kwh });
+  }
+  return data;
+}
+
+function parseTimestamp(str) {
+  if (!str) return null;
+  // Format: "DD/MM/YYYY HH:MM:SS"
+  const parts = str.trim().match(/(\d+)\/(\d+)\/(\d+) (\d+):(\d+):(\d+)/);
+  if (!parts) return null;
+  const day = parseInt(parts[1]);
+  const month = parseInt(parts[2]) - 1;
+  const year = parseInt(parts[3]);
+  const hour = parseInt(parts[4]);
+  const minute = parseInt(parts[5]);
+  return new Date(year, month, day, hour, minute);
+}
+
+// ─── Plan Type Switching ───────────────────────────────────────────────────────
+planType.addEventListener('change', () => {
+  document.querySelectorAll('.plan-config').forEach(el => el.classList.add('hidden'));
+  const selected = planType.value;
+  if (selected === 'flat') document.getElementById('flatConfig').classList.remove('hidden');
+  if (selected === 'daynight') document.getElementById('daynightConfig').classList.remove('hidden');
+  if (selected === 'tou') {
+    document.getElementById('touConfig').classList.remove('hidden');
+    initTOU();
+  }
+  if (selected === 'freehours') {
+    document.getElementById('freehoursConfig').classList.remove('hidden');
+    initFreeHours();
+  }
+  updatePlanSummary();
+});
+
+// ─── Time of Use ─────────────────────────────────────────────────────────────
+function initTOU() {
+  const wContainer = document.getElementById('weekdayPeriods');
+  if (wContainer.children.length === 0) {
+    addWeekdayPeriod('07:00', '23:00', 28.5);
+    addWeekdayPeriod('23:00', '07:00', 18.0);
+  }
+  const wDiffers = document.getElementById('weekendDiffers');
+  const wEndContainer = document.getElementById('weekendPeriodsContainer');
+  wDiffers.onchange = () => {
+    wEndContainer.classList.toggle('hidden', !wDiffers.checked);
+    if (wDiffers.checked && document.getElementById('weekendPeriods').children.length === 0) {
+      addWeekendPeriod('07:00', '23:00', 28.5);
+      addWeekendPeriod('23:00', '07:00', 18.0);
+    }
+  };
+  document.getElementById('addWeekdayPeriod').onclick = () => addWeekdayPeriod('00:00', '00:00', 0);
+  document.getElementById('addWeekendPeriod').onclick = () => addWeekendPeriod('00:00', '00:00', 0);
+}
+
+function addWeekdayPeriod(start, end, rate) {
+  const container = document.getElementById('weekdayPeriods');
+  const id = 'wp' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'period-row';
+  div.innerHTML = `
+    <div><label>Start</label><input type="time" value="${start}" data-wp-id="${id}" class="wp-start"></div>
+    <div><label>End</label><input type="time" value="${end}" data-wp-id="${id}" class="wp-end"></div>
+    <div><label>Rate (¢/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="wp-rate"></div>
+    <button class="btn btn-danger wp-del" data-id="${id}">✕</button>`;
+  container.appendChild(div);
+  div.querySelector('.wp-del').onclick = () => div.remove();
+  div.querySelectorAll('input').forEach(inp => inp.addEventListener('change', updatePlanSummary));
+}
+
+function addWeekendPeriod(start, end, rate) {
+  const container = document.getElementById('weekendPeriods');
+  const id = 'we' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'period-row';
+  div.innerHTML = `
+    <div><label>Start</label><input type="time" value="${start}" class="we-start"></div>
+    <div><label>End</label><input type="time" value="${end}" class="we-end"></div>
+    <div><label>Rate (¢/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="we-rate"></div>
+    <button class="btn btn-danger we-del">✕</button>`;
+  container.appendChild(div);
+  div.querySelector('.we-del').onclick = () => div.remove();
+  div.querySelectorAll('input').forEach(inp => inp.addEventListener('change', updatePlanSummary));
+}
+
+// ─── Free Hours ────────────────────────────────────────────────────────────────
+function initFreeHours() {
+  const container = document.getElementById('freeHourRanges');
+  if (container.children.length === 0) {
+    addFreeRange('09:00', '15:00');
+    addFreeRange('21:00', '23:00');
+  }
+  document.getElementById('addFreeRange').onclick = () => addFreeRange('00:00', '00:00');
+}
+
+function addFreeRange(start, end) {
+  const container = document.getElementById('freeHourRanges');
+  const id = 'fr' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'period-row';
+  div.style.gridTemplateColumns = '1fr 1fr auto';
+  div.innerHTML = `
+    <div><label>Start</label><input type="time" value="${start}" class="fr-start"></div>
+    <div><label>End</label><input type="time" value="${end}" class="fr-end"></div>
+    <button class="btn btn-danger fr-del">✕</button>`;
+  container.appendChild(div);
+  div.querySelector('.fr-del').onclick = () => div.remove();
+  div.querySelectorAll('input').forEach(inp => inp.addEventListener('change', updatePlanSummary));
+}
+
+// ─── Plan Summary ─────────────────────────────────────────────────────────────
+function updatePlanSummary() {
+  const summary = document.getElementById('planSummary');
+  summary.classList.remove('hidden');
+  const name = document.getElementById('planName').value;
+  const type = planType.value;
+  let html = '';
+  if (name) html += `<strong>${name}</strong> · `;
+  html += `<strong>${planType.options[planType.selectedIndex].text}</strong><br>`;
+  if (type === 'flat') {
+    html += `Flat rate: ${document.getElementById('flatRate').value || '?'} ¢/kWh`;
+  }
+  if (type === 'daynight') {
+    html += `Day: ${document.getElementById('dayRate').value || '?'} ¢/kWh · Night: ${document.getElementById('nightRate').value || '?'} ¢/kWh (${document.getElementById('nightStart').value}–${document.getElementById('nightEnd').value})`;
+  }
+  if (type === 'tou') {
+    const periods = getWeekdayPeriods();
+    const weekendPeriods = getWeekendPeriods();
+    const wDiffers = document.getElementById('weekendDiffers').checked;
+    html += `${periods.length} weekday period(s)`;
+    if (wDiffers) html += ` · ${weekendPeriods.length} weekend period(s)`;
+    else html += ' · same rates on weekends';
+  }
+  if (type === 'freehours') {
+    const ranges = getFreeHourRanges();
+    html += `Base: ${document.getElementById('baseRate').value || '?'} ¢/kWh · ${ranges.length} free range(s)`;
+  }
+  const dc = document.getElementById('dailyCharge').value;
+  const dcUnit = document.getElementById('dailyChargeUnit').value;
+  const dcPer = document.getElementById('dailyChargePer').value;
+  if (dc) {
+    const unitLabel = dcUnit === 'cents' ? '¢/day' : '$/' + (dcPer === 'week' ? 'week' : dcPer === 'month' ? 'month' : 'day');
+    html += `<br>Supply charge: ${dc}${unitLabel}`;
+  }
+  if (document.getElementById('eaLevyEnabled').checked) {
+    html += `<br>EA Levy: ${document.getElementById('eaLevyRate').value || '?'} ¢/kWh`;
+  }
+  summary.innerHTML = html;
+}
+
+['flatRate','dayRate','nightRate','nightStart','nightEnd','planName','dailyCharge','dailyChargeUnit','dailyChargePer','eaLevyRate'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', updatePlanSummary);
+});
+
+// EA Levy toggle
+document.getElementById('eaLevyEnabled').addEventListener('change', function() {
+  document.getElementById('eaLevyConfig').classList.toggle('hidden', !this.checked);
+  updatePlanSummary();
+});
+
+// Daily charge per change
+document.getElementById('dailyChargePer').addEventListener('change', updatePlanSummary);
+
+// ─── Rate Lookup ──────────────────────────────────────────────────────────────
+function timeToMinutes(t) {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function getRateForTimestamp(ts) {
+  const type = planType.value;
+  const dayOfWeek = ts.getDay(); // 0=Sun, 6=Sat
+  const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+  const minutes = ts.getHours() * 60 + ts.getMinutes();
+
+  if (type === 'flat') {
+    return parseFloat(document.getElementById('flatRate').value) || 0;
+  }
+
+  if (type === 'daynight') {
+    const dayRate = parseFloat(document.getElementById('dayRate').value) || 0;
+    const nightRate = parseFloat(document.getElementById('nightRate').value) || 0;
+    const nightStart = timeToMinutes(document.getElementById('nightStart').value);
+    const nightEnd = timeToMinutes(document.getElementById('nightEnd').value);
+    if (nightStart > nightEnd) {
+      // overnight: night is start→midnight AND midnight→end
+      if (minutes >= nightStart || minutes < nightEnd) return nightRate;
+    } else {
+      if (minutes >= nightStart && minutes < nightEnd) return nightRate;
+    }
+    return dayRate;
+  }
+
+  if (type === 'tou') {
+    const periods = isWeekend ? getWeekendPeriods() : getWeekdayPeriods();
+    for (const p of periods) {
+      const pStart = timeToMinutes(p.start);
+      const pEnd = timeToMinutes(p.end);
+      if (pStart > pEnd) {
+        // overnight period
+        if (minutes >= pStart || minutes < pEnd) return p.rate;
+      } else {
+        if (minutes >= pStart && minutes < pEnd) return p.rate;
+      }
+    }
+    return 0; // no matching period
+  }
+
+  if (type === 'freehours') {
+    const baseRate = parseFloat(document.getElementById('baseRate').value) || 0;
+    const ranges = getFreeHourRanges();
+    for (const r of ranges) {
+      const rStart = timeToMinutes(r.start);
+      const rEnd = timeToMinutes(r.end);
+      if (rStart > rEnd) {
+        if (minutes >= rStart || minutes < rEnd) return 0;
+      } else {
+        if (minutes >= rStart && minutes < rEnd) return 0;
+      }
+    }
+    return baseRate;
+  }
+
+  return 0;
+}
+
+function getWeekdayPeriods() {
+  const rows = document.querySelectorAll('#weekdayPeriods .period-row');
+  return Array.from(rows).map(row => ({
+    start: row.querySelector('.wp-start').value,
+    end: row.querySelector('.wp-end').value,
+    rate: parseFloat(row.querySelector('.wp-rate').value) || 0
+  }));
+}
+
+function getWeekendPeriods() {
+  const rows = document.querySelectorAll('#weekendPeriods .period-row');
+  return Array.from(rows).map(row => ({
+    start: row.querySelector('.we-start').value,
+    end: row.querySelector('.we-end').value,
+    rate: parseFloat(row.querySelector('.we-rate').value) || 0
+  }));
+}
+
+function getFreeHourRanges() {
+  const rows = document.querySelectorAll('#freeHourRanges .period-row');
+  return Array.from(rows).map(row => ({
+    start: row.querySelector('.fr-start').value,
+    end: row.querySelector('.fr-end').value
+  }));
+}
+
+// ─── Calculate ───────────────────────────────────────────────────────────────
+document.getElementById('calculateBtn').addEventListener('click', calculate);
+
+function calculate() {
+  calcError.innerHTML = '';
+  if (csvData.length === 0) {
+    calcError.innerHTML = '<div class="error-msg">Please upload a CSV first.</div>';
+    return;
+  }
+
+  let totalCost = 0;
+  let totalKwh = 0;
+  let eaLevyCost = 0;
+  let dailyChargeCost = 0;
+  const byDay = {};
+  const byPeriodType = {};
+
+  for (const row of csvData) {
+    const rate = getRateForTimestamp(row.ts);
+    const cost = row.kwh * rate / 100; // convert cents to dollars
+    totalCost += cost;
+    totalKwh += row.kwh;
+
+    // EA Levy
+    if (document.getElementById('eaLevyEnabled').checked) {
+      const eaRate = parseFloat(document.getElementById('eaLevyRate').value) || 0;
+      eaLevyCost += row.kwh * eaRate / 100;
+    }
+
+    // Daily breakdown
+    const dayKey = row.ts.toISOString().split('T')[0];
+    if (!byDay[dayKey]) byDay[dayKey] = { kwh: 0, cost: 0 };
+    byDay[dayKey].kwh += row.kwh;
+    byDay[dayKey].cost += cost;
+
+    // Rate period breakdown
+    const type = planType.value;
+    let periodKey = 'flat';
+    if (type === 'daynight') {
+      const nightStart = timeToMinutes(document.getElementById('nightStart').value);
+      const nightEnd = timeToMinutes(document.getElementById('nightEnd').value);
+      const mins = row.ts.getHours() * 60 + row.ts.getMinutes();
+      const isNight = nightStart > nightEnd
+        ? (mins >= nightStart || mins < nightEnd)
+        : (mins >= nightStart && mins < nightEnd);
+      periodKey = isNight ? 'night' : 'day';
+    }
+    if (type === 'tou') {
+      periodKey = 'peak';
+    }
+    if (!byPeriodType[periodKey]) byPeriodType[periodKey] = { kwh: 0, cost: 0 };
+    byPeriodType[periodKey].kwh += row.kwh;
+    byPeriodType[periodKey].cost += cost;
+  }
+
+  // Daily supply charge
+  const dayCount = Object.keys(byDay).length;
+  const dailyChargeAmount = parseFloat(document.getElementById('dailyCharge').value) || 0;
+  const dailyChargeUnit = document.getElementById('dailyChargeUnit').value;
+  const dailyChargePer = document.getElementById('dailyChargePer').value;
+  if (dailyChargeAmount > 0) {
+    let dailyAmount = dailyChargeAmount;
+    if (dailyChargeUnit === 'cents') dailyAmount = dailyChargeAmount / 100;
+    if (dailyChargePer === 'week') dailyAmount = dailyAmount * dayCount / 7;
+    else if (dailyChargePer === 'month') dailyAmount = dailyAmount * dayCount / 30;
+    else dailyAmount = dailyAmount * dayCount;
+    dailyChargeCost = dailyAmount;
+  }
+
+  const effectiveRate = totalKwh > 0 ? ((totalCost + eaLevyCost + dailyChargeCost) / totalKwh * 100) : 0;
+
+  const grandTotal = totalCost + eaLevyCost + dailyChargeCost;
+  document.getElementById('totalCost').textContent = '$' + grandTotal.toFixed(2);
+  document.getElementById('totalKwh').textContent = totalKwh.toFixed(1) + ' kWh';
+  document.getElementById('effectiveRate').textContent = effectiveRate.toFixed(2) + ' ¢';
+  document.getElementById('periodDays').textContent = dayCount;
+
+  // Breakdown by period
+  let breakdownHtml = '<div class="section-label">Cost Breakdown</div><div class="results-grid">';
+  for (const [key, val] of Object.entries(byPeriodType)) {
+    breakdownHtml += `
+      <div class="result-card">
+        <div class="value">$${val.cost.toFixed(2)}</div>
+        <div class="label">${key.toUpperCase()} · ${val.kwh.toFixed(1)} kWh</div>
+      </div>`;
+  }
+  breakdownHtml += `
+      <div class="result-card">
+        <div class="value">$${dailyChargeCost.toFixed(2)}</div>
+        <div class="label">SUPPLY CHARGE · ${dayCount} days</div>
+      </div>`;
+  if (eaLevyCost > 0) {
+    breakdownHtml += `
+      <div class="result-card">
+        <div class="value">$${eaLevyCost.toFixed(2)}</div>
+        <div class="label">EA LEVY · ${totalKwh.toFixed(1)} kWh</div>
+      </div>`;
+  }
+  breakdownHtml += '</div>';
+  document.getElementById('breakdownSection').innerHTML = breakdownHtml;
+
+  resultsSection.classList.remove('hidden');
+
+  // Save for comparison
+  if (savedResult) showComparison();
+}
+
+// ─── Compare ─────────────────────────────────────────────────────────────────
+document.getElementById('saveResult').addEventListener('click', () => {
+  if (!resultsSection.classList.contains('hidden')) {
+    savedResult = {
+      name: document.getElementById('planName').value || 'Plan A',
+      cost: document.getElementById('totalCost').textContent,
+      kwh: document.getElementById('totalKwh').textContent,
+      rate: document.getElementById('effectiveRate').textContent
+    };
+    showComparison();
+  }
+});
+
+document.getElementById('clearSaved').addEventListener('click', () => {
+  savedResult = null;
+  document.getElementById('comparisonSection').classList.add('hidden');
+  document.getElementById('comparisonSection').innerHTML = '';
+});
+
+function showComparison() {
+  if (!savedResult) return;
+  const currentCost = parseFloat(document.getElementById('totalCost').textContent.replace('$',''));
+  const savedCost = parseFloat(savedResult.cost.replace('$',''));
+  const diff = currentCost - savedCost;
+  const sign = diff >= 0 ? '+' : '';
+  const comparison = document.getElementById('comparisonSection');
+  comparison.classList.remove('hidden');
+  comparison.innerHTML = `
+    <div class="results-grid">
+      <div class="result-card">
+        <div class="value">${savedResult.cost}</div>
+        <div class="label">${savedResult.name}</div>
+      </div>
+      <div class="result-card ${diff <= 0 ? 'green' : ''}">
+        <div class="value">${document.getElementById('totalCost').textContent}</div>
+        <div class="label">${document.getElementById('planName').value || 'Plan B'}</div>
+      </div>
+      <div class="result-card ${diff <= 0 ? 'green' : ''}">
+        <div class="value">${sign}$${diff.toFixed(2)}</div>
+        <div class="label">Difference</div>
+      </div>
+    </div>`;
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+initTOU();
+initFreeHours();
+
+// Load from localStorage
+try {
+  const saved = localStorage.getItem('evCalcConfig');
+  if (saved) {
+    const cfg = JSON.parse(saved);
+    // restore basic values if present
+  }
+} catch(e) {}
+
+window.addEventListener('beforeunload', () => {
+  // could save config to localStorage here
+});
+</script>
+</body>
+</html>
