@@ -316,21 +316,22 @@
       <select id="planSource">
         <option value="manual">Enter plan details manually</option>
         <option value="billy">Import from Billy URL</option>
+        <option value="powerswitch">Import from PowerSwitch (saved HTML)</option>
       </select>
       <div id="billyUrlSection" class="hidden" style="margin-top:0.75rem">
         <div style="margin-bottom:0.75rem">
-          <label for="billyUrlInput" style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:0.3rem">Billy URL</label>
+          <label for="billyUrlInput" style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:0.3rem">Comparison URL</label>
           <div style="display:flex;gap:0.5rem">
-            <input type="url" id="billyUrlInput" placeholder="Paste Billy comparison URL here..." style="flex:1;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem">
-            <button id="billyDownloadBtn" class="btn btn-secondary" style="white-space:nowrap;padding:0 1rem">Download from Billy</button>
+            <input type="url" id="billyUrlInput" placeholder="Paste comparison URL here..." style="flex:1;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem">
+            <button id="billyDownloadBtn" class="btn btn-secondary" style="white-space:nowrap;padding:0 1rem">Download</button>
           </div>
           <div id="billyFetchStatus" style="font-size:0.8rem;margin-top:0.4rem;min-height:1.2rem;color:var(--text-dim)"></div>
         </div>
-        <div style="text-align:center;color:var(--text-dim);font-size:0.75rem;margin:0.5rem 0">— or upload a saved Billy page —</div>
+        <div style="text-align:center;color:var(--text-dim);font-size:0.75rem;margin:0.5rem 0">— or upload a saved comparison page —</div>
         <div>
-          <label style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:0.3rem">Billy page HTML file</label>
+          <label style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:0.3rem">Saved page (HTML file)</label>
           <input type="file" id="billyFileInput" accept=".html,.htm" style="font-size:0.85rem;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.4rem;width:100%">
-          <div style="font-size:0.72rem;color:var(--text-dim);margin-top:0.3rem">In Billy: right-click page → Save As → Webpage, Complete → upload the .html file</div>
+          <div style="font-size:0.72rem;color:var(--text-dim);margin-top:0.3rem">In Billy or PowerSwitch: right-click → Save As → Webpage, Complete → upload</div>
         </div>
         <div id="billyPlanSelector" class="hidden" style="margin-top:0.75rem">
           <label for="billyPlanSelect">Select a plan from Billy:</label>
@@ -1626,9 +1627,9 @@ const billyPlanSelect = document.getElementById('billyPlanSelect');
 const billyAutoFillWarning = document.getElementById('billyAutoFillWarning');
 
 planSourceSelect.addEventListener('change', () => {
-  const isBilly = planSourceSelect.value === 'billy';
-  billyUrlSection.classList.toggle('hidden', !isBilly);
-  if (!isBilly) {
+  const isImport = planSourceSelect.value === 'billy' || planSourceSelect.value === 'powerswitch';
+  billyUrlSection.classList.toggle('hidden', !isImport);
+  if (!isImport) {
     billyFetchStatus.textContent = '';
     billyPlanSelector.classList.add('hidden');
     billyAutoFillWarning.classList.add('hidden');
@@ -1702,19 +1703,18 @@ document.getElementById('billyFileInput').addEventListener('change', (e) => {
       const html = ev.target.result;
       billyPlansCache = extractBillyPlans(html);
       if (billyPlansCache.length === 0) {
-        // Debug: show what we found
         const nameCount = (html.match(/data-slot="card-title"/g) || []).length;
-        const ariaCount = (html.match(/aria-label="Heading:/g) || []).length;
-        billyFetchStatus.textContent = `Could not find plans. Tried both extraction methods (found ${nameCount} data-slot and ${ariaCount} aria-label markers). Make sure you saved the full results page from Billy (not just the login or address entry page).`;
+        const psCount = (html.match(/TariffTable/g) || []).length;
+        billyFetchStatus.textContent = `Could not find plans. Found ${nameCount} Billy markers, ${psCount} PowerSwitch tariff tables. Make sure you saved the full results page.`;
         return;
       }
       const priceNote = billyPlansCache.every(p => !p.price)
-        ? ' (prices not available from saved file — enter them manually)'
+        ? ' (daily price may not be available — enter manually)'
         : '';
       billyPlanSelect.innerHTML = '<option value="">— Select a plan —</option>' +
-        billyPlansCache.map((p, i) => `<option value="${i}">${p.name}${p.price ? ' ($'+p.price+'/mo)' : ''}</option>`).join('');
+        billyPlansCache.map((p, i) => `<option value="${i}">${p.name}${p.price ? ' ($'+p.price+')' : ''}</option>`).join('');
       billyPlanSelector.classList.remove('hidden');
-      billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans from file${priceNote}. Select one to auto-fill the plan type and time periods.`;
+      billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans from file${priceNote}. Select one to auto-fill.`;
     } catch(err) {
       billyFetchStatus.textContent = 'Error parsing file: ' + (err.message || 'unknown error');
     }
@@ -1734,9 +1734,12 @@ billyPlanSelect.addEventListener('change', () => {
 });
 
 function extractBillyPlans(html) {
-  // Extract plan names and descriptions from Billy's HTML using data-slot attributes.
-  // Billy renders plan names as: <div data-slot="card-title" ...>PlanName</div>
-  // and descriptions as: <div data-slot="card-description" ...>Description</div>
+  // Try PowerSwitch format first (has TariffTable class)
+  if (html.includes('TariffTable')) {
+    return extractPowerSwitchPlans(html);
+  }
+
+  // Fall back to Billy format (data-slot attributes)
   const plans = [];
 
   const nameRegex = /data-slot="card-title"[^>]*>([^<]+)<\/div>/g;
@@ -1752,8 +1755,7 @@ function extractBillyPlans(html) {
   while ((m = descRegex.exec(html)) !== null) descs.push(m[1].trim());
   while ((m = priceRegex.exec(html)) !== null) prices.push(m[1]);
 
-  // Prices may not be in the saved HTML (loaded dynamically by JS after page load).
-  // Build plans using names+descs; only include prices if we actually found some.
+  // Prices may not be in saved HTML (loaded dynamically)
   let count = Math.min(names.length, descs.length);
   const hasPrices = prices.length > 0;
   if (hasPrices) count = Math.min(count, prices.length);
@@ -1762,18 +1764,110 @@ function extractBillyPlans(html) {
     plans.push({
       name: names[i],
       description: descs[i] || '',
-      price: hasPrices ? prices[i] : ''
+      price: hasPrices ? prices[i] : '',
+      rates: {}
     });
   }
 
   // If no prices found, still return what we have from names+descs
   if (plans.length === 0 && names.length > 0) {
     for (let i = 0; i < names.length; i++) {
-      plans.push({ name: names[i], description: descs[i] || '', price: '' });
+      plans.push({ name: names[i], description: descs[i] || '', price: '', rates: {} });
     }
   }
 
   return plans;
+}
+
+function extractPowerSwitchPlans(html) {
+  // PowerSwitch format: plans are in <h3> tags followed by <table class="TariffTable">
+  // Each row in the table is <tr><td>Label</td><td class="tr">Value</td></tr>
+  const plans = [];
+  const h3Matches = html.matchAll(/<h3[^>]*>([^<]+)<\/h3>/g);
+
+  for (const match of h3Matches) {
+    const planName = match[1].trim();
+    if (planName === 'Filter your results' || planName === 'Plan details') continue;
+
+    // Find the next tariff table after this h3
+    const afterH3 = html.substring(match.index);
+    const tableStart = afterH3.indexOf('<table class="TariffTable');
+    if (tableStart < 0) continue;
+
+    const afterTable = afterH3.substring(tableStart);
+    const tableEnd = afterTable.indexOf('</table>');
+    if (tableEnd < 0) continue;
+
+    const tableHtml = afterTable.substring(0, tableEnd + 8);
+
+    // Extract rows
+    const tariffRows = tableHtml.matchAll(/<tr><td>([^<]+)<\/td><td class="tr">([^<]+)<\/td><\/tr>/g);
+    const rates = {};
+    for (const row of tariffRows) {
+      const label = row[1].trim();
+      const value = row[2].trim();
+      rates[label] = value;
+    }
+
+    if (Object.keys(rates).length > 0) {
+      // Parse rates into structured format
+      const parsed = parsePowerSwitchRates(planName, rates);
+      plans.push({
+        name: planName,
+        description: '',
+        price: rates['Daily costs'] || rates['Plan Fixed Charge'] || rates['Daily charge'] || '',
+        rates: parsed
+      });
+    }
+  }
+
+  return plans;
+}
+
+function parsePowerSwitchRates(planName, rates) {
+  // Convert PowerSwitch rate table into calculator-friendly format
+  const result = {
+    type: 'flat', // default
+    daily: 0,
+    periods: [],
+    freeHours: []
+  };
+
+  // Extract daily charge
+  result.daily = parseFloat(rates['Daily costs']?.replace('$','') || rates['Plan Fixed Charge']?.replace('$','') || rates['Daily charge']?.replace('$','') || '0');
+
+  // Check for Free Hours plans
+  const freeKeys = Object.keys(rates).filter(k => k.includes('Free:') || k.includes('Free:'));
+  if (freeKeys.length > 0) {
+    result.type = 'freehours';
+    freeKeys.forEach(fk => {
+      const timeMatch = rates[fk].match(/(\d+(?::\d+)?)\s*(?:am|pm)?\s*-\s*(\d+(?::\d+)?)\s*(?:am|pm)?/i);
+      if (timeMatch) {
+        // Parse times - this is a simplified version
+        result.freeHours.push({ period: fk.replace('Free:', '').trim(), rate: 0 });
+      }
+    });
+    return result;
+  }
+
+  // Check for Peak/Off-Peak (TOU)
+  const peakRate = rates['All Inclusive Plan variable charge Peak'] || rates['Peak - Controlled'] || rates['Peak'];
+  const offPeakRate = rates['All Inclusive Plan variable charge Off Peak'] || rates['Off Peak - Controlled'] || rates['Off Peak'];
+
+  if (peakRate && offPeakRate && peakRate !== offPeakRate) {
+    result.type = 'tou';
+    // Default assumption: Peak is daytime (7am-11pm), Off-Peak is night (11pm-7am)
+    result.periods = [
+      { start: '07:00', end: '23:00', rate: parseFloat(peakRate.replace('$','')) * 100 },
+      { start: '23:00', end: '07:00', rate: parseFloat(offPeakRate.replace('$','')) * 100 }
+    ];
+  } else if (peakRate) {
+    // Same rate for all day - could be flat or day/night with same rate
+    result.type = 'flat';
+    result.periods = [{ start: '00:00', end: '00:00', rate: parseFloat(peakRate.replace('$','')) * 100 }];
+  }
+
+  return result;
 }
 
 function parseBillyDescription(description) {
@@ -1830,22 +1924,73 @@ function parseBillyDescription(description) {
 }
 
 function autoFillFromBillyPlan(plan) {
-  const parsed = parseBillyDescription(plan.description);
+  // plan can come from either Billy (has description) or PowerSwitch (has rates)
+  // Check which format we have
+  if (plan.rates && Object.keys(plan.rates).length > 0) {
+    // PowerSwitch format - plan has parsed rates
+    autoFillFromPowerSwitchPlan(plan);
+  } else {
+    // Billy format - plan has description
+    const parsed = parseBillyDescription(plan.description);
+    planType.value = parsed.planType;
+    planType.dispatchEvent(new Event('change'));
+
+    if (parsed.planType === 'daynight' && parsed.nightStart) {
+      document.getElementById('dayRate').value = parsed.dayRate;
+      document.getElementById('nightRate').value = parsed.nightRate;
+      document.getElementById('nightStart').value = parsed.nightStart;
+      document.getElementById('nightEnd').value = parsed.nightEnd;
+    } else if (parsed.planType === 'tou' && parsed.periods.length > 0) {
+      const wContainer = document.getElementById('weekdayPeriods');
+      wContainer.innerHTML = '';
+      parsed.periods.forEach(p => addWeekdayPeriod(p.start, p.end, p.rate));
+      document.getElementById('addWeekdayPeriod').onclick = () => addWeekdayPeriod('00:00', '00:00', 0);
+    }
+  }
+
+  // Also fill in daily charge if available
+  if (plan.price) {
+    // Price might be "$2.67/day" or just "$2.67"
+    const dailyMatch = plan.price.match(/\$?([\d.]+)/);
+    if (dailyMatch) {
+      document.getElementById('dailyCharge').value = dailyMatch[1];
+    }
+  }
+}
+
+function autoFillFromPowerSwitchPlan(plan) {
+  // PowerSwitch has already parsed the rates - fill them in
+  const rates = plan.rates;
+
   // Set plan type
-  planType.value = parsed.planType;
+  planType.value = rates.type || 'flat';
   planType.dispatchEvent(new Event('change'));
 
-  if (parsed.planType === 'daynight' && parsed.nightStart) {
-    document.getElementById('dayRate').value = parsed.dayRate;
-    document.getElementById('nightRate').value = parsed.nightRate;
-    document.getElementById('nightStart').value = parsed.nightStart;
-    document.getElementById('nightEnd').value = parsed.nightEnd;
-  } else if (parsed.planType === 'tou' && parsed.periods.length > 0) {
-    // Clear existing and add parsed periods
+  // Set daily charge
+  if (rates.daily > 0) {
+    document.getElementById('dailyCharge').value = rates.daily.toFixed(2);
+  }
+
+  if (rates.type === 'flat') {
+    // Flat rate - use the single period rate
+    if (rates.periods && rates.periods.length > 0) {
+      document.getElementById('flatRate').value = (rates.periods[0].rate / 100).toFixed(2);
+    }
+  } else if (rates.type === 'tou') {
+    // TOU - fill in the periods
     const wContainer = document.getElementById('weekdayPeriods');
     wContainer.innerHTML = '';
-    parsed.periods.forEach(p => addWeekdayPeriod(p.start, p.end, p.rate));
+    if (rates.periods) {
+      rates.periods.forEach(p => {
+        addWeekdayPeriod(p.start, p.end, p.rate / 100);
+      });
+    }
     document.getElementById('addWeekdayPeriod').onclick = () => addWeekdayPeriod('00:00', '00:00', 0);
+  } else if (rates.type === 'freehours') {
+    // Free hours
+    planType.value = 'freehours';
+    planType.dispatchEvent(new Event('change'));
+    // Free hours would need more parsing - for now, just set plan type
   }
 }
 
