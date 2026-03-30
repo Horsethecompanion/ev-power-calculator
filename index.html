@@ -1285,7 +1285,10 @@ document.getElementById('billyFileInput').addEventListener('change', (e) => {
       const html = ev.target.result;
       billyPlansCache = extractBillyPlans(html);
       if (billyPlansCache.length === 0) {
-        billyFetchStatus.textContent = 'Could not find plans in this file. Make sure you saved the full Billy webpage (File → Save As → Webpage, Complete).';
+        // Debug: show what we found
+        const nameCount = (html.match(/data-slot="card-title"/g) || []).length;
+        const ariaCount = (html.match(/aria-label="Heading:/g) || []).length;
+        billyFetchStatus.textContent = `Could not find plans. Tried both extraction methods (found ${nameCount} data-slot and ${ariaCount} aria-label markers). Make sure you saved the full results page from Billy (not just the login or address entry page).`;
         return;
       }
       const priceNote = billyPlansCache.every(p => !p.price)
@@ -1296,7 +1299,7 @@ document.getElementById('billyFileInput').addEventListener('change', (e) => {
       billyPlanSelector.classList.remove('hidden');
       billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans from file${priceNote}. Select one to auto-fill the plan type and time periods.`;
     } catch(err) {
-      billyFetchStatus.textContent = 'Could not parse that file. Make sure you saved the full webpage (File → Save As → Webpage, Complete).';
+      billyFetchStatus.textContent = 'Error parsing file: ' + (err.message || 'unknown error');
     }
   };
   reader.readAsText(file);
@@ -1315,30 +1318,37 @@ billyPlanSelect.addEventListener('change', () => {
 
 function extractBillyPlans(html) {
   // Extract plan names, descriptions, and prices from the Billy comparison page.
-  // The page uses data-slot attributes: card-title (name), card-description (desc),
-  // and aria-label="Cost: $XXX" for the monthly price.
+  // Tries multiple extraction methods for robustness.
   const plans = [];
 
-  // Extract all plan names
-  const nameRegex = /data-slot="card-title"[^>]*>([^<]+)<\/div>/g;
-  // Extract all descriptions
-  const descRegex = /data-slot="card-description"[^>]*>([^<]+)<\/div>/g;
-  // Extract all prices
-  const priceRegex = /aria-label="Cost: \$(\d+)"/g;
+  // Method 1: aria-label attributes (most reliable - these are accessibility labels)
+  // "Heading: PlanName" for plan title, "Description: Something" for description
+  const headingRegex = /aria-label="Heading: ([^"]+)"[^>]*>([^<]+)<\/div>/g;
+  const descAriaRegex = /aria-label="Description: ([^"]+)"[^>]*>([^<]+)<\/div>/g;
 
   const names = [];
   const descs = [];
-  const prices = [];
-
   let m;
-  while ((m = nameRegex.exec(html)) !== null) names.push(m[1].trim());
-  while ((m = descRegex.exec(html)) !== null) descs.push(m[1].trim());
+
+  // Try aria-label based extraction
+  while ((m = headingRegex.exec(html)) !== null) names.push(m[2].trim());
+  while ((m = descAriaRegex.exec(html)) !== null) descs.push(m[2].trim());
+
+  // Method 2: data-slot attributes (backup)
+  if (names.length === 0) {
+    const nameRegex = /data-slot="card-title"[^>]*>([^<]+)<\/div>/g;
+    const descRegex = /data-slot="card-description"[^>]*>([^<]+)<\/div>/g;
+    while ((m = nameRegex.exec(html)) !== null) names.push(m[1].trim());
+    while ((m = descRegex.exec(html)) !== null) descs.push(m[1].trim());
+  }
+
+  // Try to extract prices (may not be in saved HTML)
+  const priceRegex = /aria-label="Cost: \$(\d+)"/g;
+  const prices = [];
   while ((m = priceRegex.exec(html)) !== null) prices.push(m[1]);
 
-  // Zip names and descriptions together — prices may be empty (loaded dynamically)
-  // Use the count of whichever is smaller: names+descs vs prices
+  // Build plans array from whichever extraction worked
   let count = Math.min(names.length, descs.length);
-  // Only include prices if we actually found some
   if (prices.length > 0) count = Math.min(count, prices.length);
   for (let i = 0; i < count; i++) {
     plans.push({
@@ -1352,22 +1362,8 @@ function extractBillyPlans(html) {
     for (let i = 0; i < names.length; i++) {
       plans.push({
         name: names[i],
-        description: descs[i] || '',
+        description: (descs[i] || ''),
         price: ''
-      });
-    }
-  }
-
-  // Fallback: if regex didn't work, try stripping HTML and extracting from text
-  if (plans.length === 0) {
-    // Last resort: extract plan-like text blocks from the page
-    const textOnly = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-    // Look for $XXX patterns after plan name-like text
-    const fallback = textOnly.match(/(?:Plan Name|Title):\s*([A-Za-z0-9 +]+?)\s.*?\$(\d+)/gi);
-    if (fallback) {
-      fallback.forEach(m => {
-        const nm = m.match(/([A-Za-z0-9 +]+?)\s.*?\$(\d+)/i);
-        if (nm) plans.push({ name: nm[1].trim(), price: nm[2], description: '' });
       });
     }
   }
