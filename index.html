@@ -627,7 +627,9 @@ function handleFile(file) {
       fileName.textContent = file.name;
       fileSize.textContent = formatBytes(file.size) + ' · ' + csvData.length + ' readings';
       if (isSolarFormat) {
-        fileSize.textContent += ' · solar data';
+        const feedInDays = Object.keys(solarFeedIn).filter(d => solarFeedIn[d].feedIn > 0).length;
+        const feedInTotal = Object.values(solarFeedIn).reduce((s, d) => s + d.feedIn, 0);
+        fileSize.textContent += ` · solar detected (${feedInDays} export days, ${feedInTotal.toFixed(0)} kWh exported)`;
         document.getElementById('solarSection').classList.remove('hidden');
       } else {
         document.getElementById('solarSection').classList.add('hidden');
@@ -650,7 +652,7 @@ function formatBytes(bytes) {
 function parseCSV(rows) {
   if (!rows || rows.length < 2) return [];
 
-  // Detect solar format: header has 48 half-hour column headers (00:00 - 00:30 pattern)
+  // Detect solar wide format: header has 48 half-hour column headers (00:00 - 00:30 pattern)
   const header = rows[0];
   const hasSolarHeader = header.length === 52 &&
     typeof header[4] === 'string' &&
@@ -658,13 +660,34 @@ function parseCSV(rows) {
 
   if (hasSolarHeader) {
     return parseSolarCSV(rows);
+  }
+
+  // Detect the Meridian EG solar format:
+  // In this format, col 7 has meter channel codes:
+  // '7304' = consumption meter (main), 'EG' = solar export, 'D'/'N' = daily aggregates (skip), 'IN' = minor
+  // Col 9 = timestamp, Col 12 = kWh
+  // Total file is much larger (>50k rows typically), has both consumption AND EG solar
+  const hasEGFormat = rows.length > 5000;
+  let egCount = 0;
+  let chan7Count = 0;
+  for (let i = 1; i < Math.min(rows.length, 100); i++) {
+    if (rows[i].length > 12) {
+      const col7 = String(rows[i][7] || '').trim();
+      if (col7 === 'EG') egCount++;
+      if (['7304', 'EG', 'D', 'N', 'IN'].includes(col7)) chan7Count++;
+    }
+  }
+  const hasNewMeridianFormat = egCount > 0 && chan7Count > 3;
+
+  if (hasNewMeridianFormat) {
+    return parseMeridianEGCSV(rows);
   } else {
     return parseMeridianCSV(rows);
   }
 }
 
 function parseSolarCSV(rows) {
-  // Solar format: columns 4-51 are half-hour readings, column 2 is row type (Consumption/Feed-in), column 3 is date
+  // Solar wide format: columns 4-51 are half-hour readings, column 2 is row type (Consumption/Feed-in), column 3 is date
   // Columns: ICP, Meter number, Meter element, Date, 00:00-00:30, 00:30-01:00, ..., 23:30-00:00
   isSolarFormat = true;
   solarFeedIn = {};
@@ -672,74 +695,54 @@ function parseSolarCSV(rows) {
   const header = rows[0];
   const periods = [];
   for (let i = 4; i < 52; i++) {
-    // Parse "HH:MM - HH:MM" from header
     const col = header[i] || '';
     const match = col.match(/(\d+):(\d+)\s*-\s*(\d+):(\d+)/);
     if (match) {
-      const hour = parseInt(match[1]);
-      const minute = parseInt(match[2]);
-      periods.push({ hour, minute, colIndex: i });
+      periods.push({ hour: parseInt(match[1]), minute: parseInt(match[2]), colIndex: i });
     }
   }
-
-  let lastDate = null;
 
   for (const row of rows.slice(1)) {
     if (!row || row.length < 52) continue;
     const rowType = (row[2] || '').trim();
     if (rowType !== 'Consumption' && rowType !== 'Feed-in') continue;
-
     const dateStr = (row[3] || '').trim();
     if (!dateStr) continue;
-
-    // Parse date: DD/M/YYYY or D/MM/YYYY
     const dateParts = dateStr.match(/(\d+)\/(\d+)\/(\d+)/);
     if (!dateParts) continue;
     const day = parseInt(dateParts[1]);
     const month = parseInt(dateParts[2]) - 1;
     const year = parseInt(dateParts[3]);
     const dateKey = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    if (!solarFeedIn[dateKey]) solarFeedIn[dateKey] = { consumption: 0, feedIn: 0 };
 
-    if (!solarFeedIn[dateKey]) {
-      solarFeedIn[dateKey] = { consumption: 0, feedIn: 0 };
-    }
-
-    // Add up all half-hourly readings for this row
     for (const p of periods) {
       const val = parseFloat(row[p.colIndex]);
       if (!isNaN(val) && val > 0) {
-        // Create timestamp for this half-hour
         const ts = new Date(year, month, day, p.hour, p.minute);
-        const kwh = val;
-
         if (rowType === 'Consumption') {
-          csvData.push({ ts, kwh, type: 'consumption' });
-          solarFeedIn[dateKey].consumption += kwh;
+          csvData.push({ ts, kwh: val, type: 'consumption' });
+          solarFeedIn[dateKey].consumption += val;
         } else if (rowType === 'Feed-in') {
-          // For feed-in, we store as negative consumption to represent credit
-          csvData.push({ ts, kwh: -kwh, type: 'feedin' });
-          solarFeedIn[dateKey].feedIn += kwh;
+          csvData.push({ ts, kwh: -val, type: 'feedin' });
+          solarFeedIn[dateKey].feedIn += val;
         }
       }
     }
   }
-
-  // Return only consumption readings for normal rate calculations
-  // (feed-in data is tracked separately in solarFeedIn)
   return csvData.filter(d => d.type === 'consumption');
 }
 
 function parseMeridianCSV(rows) {
-  // Standard Meridian format: column 0 = REC_TYPE, skip HDR and non-DET rows
+  // Standard Meridian format: col 7 = D/N flag, col 9 = timestamp, col 12 = kWh
   isSolarFormat = false;
   solarFeedIn = {};
   const data = [];
   for (const row of rows) {
     if (!row || row.length < 13) continue;
-    const recType = row[0];
-    if (recType !== 'DET') continue;
+    if (row[0] !== 'DET') continue;
     const dayNight = String(row[7] || '').trim();
-    if (dayNight === 'D' || dayNight === 'N') continue; // skip daily aggregates
+    if (dayNight === 'D' || dayNight === 'N') continue;
     const periodStart = parseTimestamp(row[9]);
     if (!periodStart) continue;
     const kwh = parseFloat(row[12]);
@@ -747,6 +750,65 @@ function parseMeridianCSV(rows) {
     data.push({ ts: periodStart, kwh, type: 'consumption' });
   }
   return data;
+}
+
+function parseMeridianEGCSV(rows) {
+  // Meridian format with solar export (EG):
+  // Col 7 channel codes: '7304' = main consumption, 'EG' = solar export, 'D'/'N' = daily aggregates (skip)
+  // Col 9 = timestamp, Col 12 = kWh
+  // 'EG' rows at 23:59:XX are daily totals from the meter — skip them, keep only half-hourly readings
+  isSolarFormat = true;
+  solarFeedIn = {};
+  const data = [];
+
+  for (const row of rows) {
+    if (!row || row.length < 13) continue;
+    if (row[0] !== 'DET') continue;
+
+    const col7 = String(row[7] || '').trim();
+    const tsStr = (row[9] || '').trim();
+    const kwh = parseFloat(row[12]);
+    if (isNaN(kwh) || kwh < 0) continue;
+
+    // Skip daily aggregate rows (D and N at midnight or 23:59)
+    if (col7 === 'D' || col7 === 'N') continue;
+
+    // Parse timestamp: "DD/MM/YYYY HH:MM:SS"
+    const parts = tsStr.match(/(\d+)\/(\d+)\/(\d+) (\d+):(\d+):(\d+)/);
+    if (!parts) continue;
+    const day = parseInt(parts[1]);
+    const month = parseInt(parts[2]) - 1;
+    const year = parseInt(parts[3]);
+    const hour = parseInt(parts[4]);
+    const minute = parseInt(parts[5]);
+    const second = parseInt(parts[6]);
+
+    const ts = new Date(year, month, day, hour, minute, second);
+
+    // EG solar export: skip the daily total readings (recorded at XX:59:54 or XX:00:01)
+    // Keep only genuine half-hourly readings (minutes 00 or 30)
+    if (col7 === 'EG') {
+      if (minute !== 0 && minute !== 30) continue; // skip daily total
+      const dateKey = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      if (!solarFeedIn[dateKey]) solarFeedIn[dateKey] = { consumption: 0, feedIn: 0 };
+      solarFeedIn[dateKey].feedIn += kwh;
+      // Store as negative to represent credit (not counted in consumption calculation)
+      data.push({ ts, kwh: 0, type: 'feedin' }); // feed-in tracked separately, not in consumption
+      continue;
+    }
+
+    // '7304' = main consumption meter
+    if (col7 === '7304' || col7 === 'IN') {
+      const dateKey = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      if (!solarFeedIn[dateKey]) solarFeedIn[dateKey] = { consumption: 0, feedIn: 0 };
+      solarFeedIn[dateKey].consumption += kwh;
+      data.push({ ts, kwh, type: 'consumption' });
+    }
+    // Any other col7 values (shouldn't happen in normal files) — skip silently
+  }
+
+  // Return only consumption rows (feed-in tracked in solarFeedIn separately)
+  return data.filter(d => d.type === 'consumption');
 }
 
 function parseTimestamp(str) {
