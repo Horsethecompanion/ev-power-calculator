@@ -476,6 +476,20 @@
 
     <div class="divider"></div>
 
+    <!-- SOLAR FEED-IN -->
+    <div id="solarSection" class="hidden">
+      <div class="divider"></div>
+      <div class="section-label">Solar Feed-in</div>
+      <div style="background:rgba(34,211,238,0.08);border:1px solid var(--accent-dim);border-radius:8px;padding:0.75rem;margin-bottom:0.75rem;font-size:0.82rem;color:var(--accent)">
+        ☀️ Solar format detected — this file contains both consumption and feed-in data
+      </div>
+      <div>
+        <label for="feedInRate">Feed-in Rate (cents/kWh)</label>
+        <input type="number" id="feedInRate" placeholder="e.g. 10" step="0.01" min="0" value="10" style="width:100%;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text)">
+        <div style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem">What your power company pays you per kWh you export back to the grid. NZ typical range: 8–18 ¢/kWh.</div>
+      </div>
+    </div>
+
     <!-- PLAN NAME -->
     <label for="planName">Plan Name (optional, for reference)</label>
     <input type="text" id="planName" placeholder="e.g. Meridian Escape">
@@ -553,6 +567,8 @@
 <script>
 // ─── State ───────────────────────────────────────────────────────────────────
 let csvData = [];
+let isSolarFormat = false;
+let solarFeedIn = {}; // { dateString: { consumption: number, feedIn: number } }
 let savedResult = null;
 
 // ─── DOM ────────────────────────────────────────────────────────────────────
@@ -582,9 +598,12 @@ dropZone.addEventListener('drop', e => {
 fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
 clearFile.addEventListener('click', () => {
   csvData = [];
+  isSolarFormat = false;
+  solarFeedIn = {};
   fileInput.value = '';
   fileInfo.classList.add('hidden');
   dropZone.classList.remove('hidden');
+  document.getElementById('solarSection').classList.add('hidden');
   calculateBtn.disabled = true;
   resultsSection.classList.add('hidden');
 });
@@ -607,6 +626,12 @@ function handleFile(file) {
       fileInfo.classList.remove('hidden');
       fileName.textContent = file.name;
       fileSize.textContent = formatBytes(file.size) + ' · ' + csvData.length + ' readings';
+      if (isSolarFormat) {
+        fileSize.textContent += ' · solar data';
+        document.getElementById('solarSection').classList.remove('hidden');
+      } else {
+        document.getElementById('solarSection').classList.add('hidden');
+      }
       calculateBtn.disabled = false;
       resultsSection.classList.add('hidden');
     },
@@ -623,8 +648,91 @@ function formatBytes(bytes) {
 }
 
 function parseCSV(rows) {
-  // Skip HDR row and any non-DET rows
-  // Column H = index 7, Column J = index 9, Column M = index 12
+  if (!rows || rows.length < 2) return [];
+
+  // Detect solar format: header has 48 half-hour column headers (00:00 - 00:30 pattern)
+  const header = rows[0];
+  const hasSolarHeader = header.length === 52 &&
+    typeof header[4] === 'string' &&
+    header[4].includes('00:00');
+
+  if (hasSolarHeader) {
+    return parseSolarCSV(rows);
+  } else {
+    return parseMeridianCSV(rows);
+  }
+}
+
+function parseSolarCSV(rows) {
+  // Solar format: columns 4-51 are half-hour readings, column 2 is row type (Consumption/Feed-in), column 3 is date
+  // Columns: ICP, Meter number, Meter element, Date, 00:00-00:30, 00:30-01:00, ..., 23:30-00:00
+  isSolarFormat = true;
+  solarFeedIn = {};
+
+  const header = rows[0];
+  const periods = [];
+  for (let i = 4; i < 52; i++) {
+    // Parse "HH:MM - HH:MM" from header
+    const col = header[i] || '';
+    const match = col.match(/(\d+):(\d+)\s*-\s*(\d+):(\d+)/);
+    if (match) {
+      const hour = parseInt(match[1]);
+      const minute = parseInt(match[2]);
+      periods.push({ hour, minute, colIndex: i });
+    }
+  }
+
+  let lastDate = null;
+
+  for (const row of rows.slice(1)) {
+    if (!row || row.length < 52) continue;
+    const rowType = (row[2] || '').trim();
+    if (rowType !== 'Consumption' && rowType !== 'Feed-in') continue;
+
+    const dateStr = (row[3] || '').trim();
+    if (!dateStr) continue;
+
+    // Parse date: DD/M/YYYY or D/MM/YYYY
+    const dateParts = dateStr.match(/(\d+)\/(\d+)\/(\d+)/);
+    if (!dateParts) continue;
+    const day = parseInt(dateParts[1]);
+    const month = parseInt(dateParts[2]) - 1;
+    const year = parseInt(dateParts[3]);
+    const dateKey = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+
+    if (!solarFeedIn[dateKey]) {
+      solarFeedIn[dateKey] = { consumption: 0, feedIn: 0 };
+    }
+
+    // Add up all half-hourly readings for this row
+    for (const p of periods) {
+      const val = parseFloat(row[p.colIndex]);
+      if (!isNaN(val) && val > 0) {
+        // Create timestamp for this half-hour
+        const ts = new Date(year, month, day, p.hour, p.minute);
+        const kwh = val;
+
+        if (rowType === 'Consumption') {
+          csvData.push({ ts, kwh, type: 'consumption' });
+          solarFeedIn[dateKey].consumption += kwh;
+        } else if (rowType === 'Feed-in') {
+          // For feed-in, we store as negative consumption to represent credit
+          csvData.push({ ts, kwh: -kwh, type: 'feedin' });
+          solarFeedIn[dateKey].feedIn += kwh;
+        }
+      }
+    }
+  }
+
+  // Return only consumption readings for normal rate calculations
+  // (feed-in data is tracked separately in solarFeedIn)
+  return csvData.filter(d => d.type === 'consumption');
+}
+
+function parseMeridianCSV(rows) {
+  // Standard Meridian format: column 0 = REC_TYPE, skip HDR and non-DET rows
+  isSolarFormat = false;
+  solarFeedIn = {};
   const data = [];
   for (const row of rows) {
     if (!row || row.length < 13) continue;
@@ -636,7 +744,7 @@ function parseCSV(rows) {
     if (!periodStart) continue;
     const kwh = parseFloat(row[12]);
     if (isNaN(kwh) || kwh < 0) continue;
-    data.push({ ts: periodStart, kwh });
+    data.push({ ts: periodStart, kwh, type: 'consumption' });
   }
   return data;
 }
@@ -1031,6 +1139,17 @@ function calculate() {
     byPeriodType[periodKey].cost += cost;
   }
 
+  // Solar feed-in credit
+  let totalFeedInKwh = 0;
+  let feedInCredit = 0;
+  if (isSolarFormat && Object.keys(solarFeedIn).length > 0) {
+    const feedInRate = parseFloat(document.getElementById('feedInRate').value) || 0;
+    for (const entry of Object.values(solarFeedIn)) {
+      totalFeedInKwh += entry.feedIn;
+    }
+    feedInCredit = totalFeedInKwh * feedInRate / 100;
+  }
+
   // Daily supply charge
   const dayCount = Object.keys(byDay).length;
   const dailyChargeAmount = parseFloat(document.getElementById('dailyCharge').value) || 0;
@@ -1045,9 +1164,10 @@ function calculate() {
     dailyChargeCost = dailyAmount;
   }
 
-  const effectiveRate = totalKwh > 0 ? ((totalCost + eaLevyCost + dailyChargeCost) / totalKwh * 100) : 0;
+  const netKwh = totalKwh - totalFeedInKwh;
+  const effectiveRate = netKwh > 0 ? ((totalCost - feedInCredit + eaLevyCost + dailyChargeCost) / netKwh * 100) : 0;
 
-  const grandTotal = totalCost + eaLevyCost + dailyChargeCost;
+  const grandTotal = totalCost - feedInCredit + eaLevyCost + dailyChargeCost;
   document.getElementById('totalCost').textContent = '$' + grandTotal.toFixed(2);
   document.getElementById('totalKwh').textContent = totalKwh.toFixed(1) + ' kWh';
   document.getElementById('effectiveRate').textContent = effectiveRate.toFixed(2) + ' ¢';
@@ -1060,6 +1180,13 @@ function calculate() {
       <div class="result-card">
         <div class="value">$${val.cost.toFixed(2)}</div>
         <div class="label">${key.toUpperCase()} · ${val.kwh.toFixed(1)} kWh</div>
+      </div>`;
+  }
+  if (feedInCredit > 0) {
+    breakdownHtml += `
+      <div class="result-card green">
+        <div class="value">-$${feedInCredit.toFixed(2)}</div>
+        <div class="label">FEED-IN CREDIT · ${totalFeedInKwh.toFixed(1)} kWh</div>
       </div>`;
   }
   breakdownHtml += `
