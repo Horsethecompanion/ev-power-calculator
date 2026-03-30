@@ -318,8 +318,17 @@
         <option value="billy">Import from Billy URL</option>
       </select>
       <div id="billyUrlSection" class="hidden" style="margin-top:0.75rem">
-        <input type="url" id="billyUrlInput" placeholder="Paste your Billy comparison URL here..." style="width:100%;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem">
-        <div id="billyFetchStatus" style="font-size:0.8rem;margin-top:0.4rem;min-height:1.2rem;color:var(--text-dim)"></div>
+        <div style="margin-bottom:0.75rem">
+          <label for="billyUrlInput" style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:0.3rem">Billy URL</label>
+          <input type="url" id="billyUrlInput" placeholder="Paste your Billy comparison URL here..." style="width:100%;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem">
+          <div id="billyFetchStatus" style="font-size:0.8rem;margin-top:0.4rem;min-height:1.2rem;color:var(--text-dim)"></div>
+        </div>
+        <div style="text-align:center;color:var(--text-dim);font-size:0.75rem;margin:0.5rem 0">— or upload the Billy page —</div>
+        <div>
+          <label style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:0.3rem">Billy page HTML file</label>
+          <input type="file" id="billyFileInput" accept=".html,.htm" style="font-size:0.85rem;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.4rem;width:100%">
+          <div style="font-size:0.72rem;color:var(--text-dim);margin-top:0.3rem">In Billy: right-click page → Save As → Webpage, Complete → upload the .html file</div>
+        </div>
         <div id="billyPlanSelector" class="hidden" style="margin-top:0.75rem">
           <label for="billyPlanSelect">Select a plan from Billy:</label>
           <select id="billyPlanSelect" style="width:100%;padding:0.5rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text)"></select>
@@ -1260,6 +1269,35 @@ billyUrlInput.addEventListener('input', debounce(async () => {
     billyFetchStatus.textContent = 'Could not fetch that URL. Make sure the Billy page is publicly accessible.';
   }
 }));
+
+// File upload fallback for when CORS blocks the URL fetch
+document.getElementById('billyFileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  billyFetchStatus.textContent = 'Parsing uploaded Billy page...';
+  billyPlanSelector.classList.add('hidden');
+  billyAutoFillWarning.classList.add('hidden');
+  billyPlansCache = [];
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const html = ev.target.result;
+      billyPlansCache = extractBillyPlans(html);
+      if (billyPlansCache.length === 0) {
+        billyFetchStatus.textContent = 'Could not find plans in this file. Make sure you saved the full Billy webpage (File → Save As → Webpage, Complete).';
+        return;
+      }
+      billyPlanSelect.innerHTML = '<option value="">— Select a plan —</option>' +
+        billyPlansCache.map((p, i) => `<option value="${i}">${p.name} (${p.price}/month)</option>`).join('');
+      billyPlanSelector.classList.remove('hidden');
+      billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans from file. Select one to auto-fill.`;
+    } catch(err) {
+      billyFetchStatus.textContent = 'Could not parse that file. Make sure you saved the full webpage (File → Save As → Webpage, Complete).';
+    }
+  };
+  reader.readAsText(file);
+});
 
 billyPlanSelect.addEventListener('change', () => {
   const idx = parseInt(billyPlanSelect.value);
