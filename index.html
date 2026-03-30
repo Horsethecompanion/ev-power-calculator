@@ -1856,10 +1856,10 @@ function parsePowerSwitchRates(planName, rates) {
 
   if (peakRate && offPeakRate && peakRate !== offPeakRate) {
     result.type = 'tou';
-    // Default assumption: Peak is daytime (7am-11pm), Off-Peak is night (11pm-7am)
+    // NZ default: off-peak/night is 9pm-7am, peak is everything else
     result.periods = [
-      { start: '07:00', end: '23:00', rate: parseFloat(peakRate.replace('$','')) * 100 },
-      { start: '23:00', end: '07:00', rate: parseFloat(offPeakRate.replace('$','')) * 100 }
+      { start: '21:00', end: '07:00', rate: parseFloat(offPeakRate.replace('$','')) * 100 }, // night/off-peak default 9pm-7am
+      { start: '07:00', end: '21:00', rate: parseFloat(peakRate.replace('$','')) * 100 }  // peak day 7am-9pm default
     ];
   } else if (peakRate) {
     // Same rate for all day - could be flat or day/night with same rate
