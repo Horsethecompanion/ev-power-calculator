@@ -320,10 +320,13 @@
       <div id="billyUrlSection" class="hidden" style="margin-top:0.75rem">
         <div style="margin-bottom:0.75rem">
           <label for="billyUrlInput" style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:0.3rem">Billy URL</label>
-          <input type="url" id="billyUrlInput" placeholder="Paste your Billy comparison URL here..." style="width:100%;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem">
+          <div style="display:flex;gap:0.5rem">
+            <input type="url" id="billyUrlInput" placeholder="Paste Billy comparison URL here..." style="flex:1;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem">
+            <button id="billyDownloadBtn" class="btn btn-secondary" style="white-space:nowrap;padding:0 1rem">Download from Billy</button>
+          </div>
           <div id="billyFetchStatus" style="font-size:0.8rem;margin-top:0.4rem;min-height:1.2rem;color:var(--text-dim)"></div>
         </div>
-        <div style="text-align:center;color:var(--text-dim);font-size:0.75rem;margin:0.5rem 0">— or upload the Billy page —</div>
+        <div style="text-align:center;color:var(--text-dim);font-size:0.75rem;margin:0.5rem 0">— or upload a saved Billy page —</div>
         <div>
           <label style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:0.3rem">Billy page HTML file</label>
           <input type="file" id="billyFileInput" accept=".html,.htm" style="font-size:0.85rem;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.4rem;width:100%">
@@ -1238,37 +1241,54 @@ planSourceSelect.addEventListener('change', () => {
 
 let billyPlansCache = [];
 
-billyUrlInput.addEventListener('input', debounce(async () => {
+// Simple URL validation on input — just clear state if invalid
+billyUrlInput.addEventListener('input', () => {
   const url = billyUrlInput.value.trim();
   if (!url || !url.includes('/compare/')) {
     billyFetchStatus.textContent = '';
     billyPlanSelector.classList.add('hidden');
     billyAutoFillWarning.classList.add('hidden');
     billyPlansCache = [];
+  }
+});
+
+// Download via CORS proxy when button is clicked
+document.getElementById('billyDownloadBtn').addEventListener('click', async () => {
+  const url = billyUrlInput.value.trim();
+  if (!url || !url.includes('/compare/')) {
+    billyFetchStatus.textContent = 'Please paste a valid Billy comparison URL first.';
     return;
   }
-  billyFetchStatus.textContent = 'Fetching plans from Billy...';
+
+  billyFetchStatus.textContent = 'Fetching via proxy...';
   billyPlanSelector.classList.add('hidden');
   billyAutoFillWarning.classList.add('hidden');
   billyPlansCache = [];
 
   try {
-    const resp = await fetch(url);
+    // allorigins.win is a free public CORS proxy
+    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+    const resp = await fetch(proxyUrl);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const html = await resp.text();
+
     billyPlansCache = extractBillyPlans(html);
     if (billyPlansCache.length === 0) {
-      billyFetchStatus.textContent = 'Could not find plans on this page. Make sure you are on a Billy comparison results page.';
+      const nameCount = (html.match(/data-slot="card-title"/g) || []).length;
+      billyFetchStatus.textContent = `Could not find plans in this file (found ${nameCount} plan markers). Make sure you are on a Billy comparison results page.`;
       return;
     }
+    const priceNote = billyPlansCache.every(p => !p.price)
+      ? ' (prices not available — enter them manually)'
+      : '';
     billyPlanSelect.innerHTML = '<option value="">— Select a plan —</option>' +
       billyPlansCache.map((p, i) => `<option value="${i}">${p.name}${p.price ? ' ($'+p.price+'/mo)' : ''}</option>`).join('');
     billyPlanSelector.classList.remove('hidden');
-    billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans. Select one to auto-fill the plan type and time periods.`;
+    billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans from Billy${priceNote}. Select one to auto-fill.`;
   } catch(e) {
-    billyFetchStatus.textContent = 'Could not fetch that URL. Make sure the Billy page is publicly accessible.';
+    billyFetchStatus.textContent = 'Could not reach Billy. Try saving the page and uploading the HTML file instead.';
   }
-}));
+});
 
 // File upload fallback for when CORS blocks the URL fetch
 document.getElementById('billyFileInput').addEventListener('change', (e) => {
