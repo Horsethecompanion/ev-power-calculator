@@ -1317,54 +1317,42 @@ billyPlanSelect.addEventListener('change', () => {
 });
 
 function extractBillyPlans(html) {
-  // Extract plan names, descriptions, and prices from the Billy comparison page.
-  // Tries multiple extraction methods for robustness.
+  // Extract plan names and descriptions from Billy's HTML using data-slot attributes.
+  // Billy renders plan names as: <div data-slot="card-title" ...>PlanName</div>
+  // and descriptions as: <div data-slot="card-description" ...>Description</div>
   const plans = [];
 
-  // Method 1: aria-label attributes (most reliable - these are accessibility labels)
-  // "Heading: PlanName" for plan title, "Description: Something" for description
-  const headingRegex = /aria-label="Heading: ([^"]+)"[^>]*>([^<]+)<\/div>/g;
-  const descAriaRegex = /aria-label="Description: ([^"]+)"[^>]*>([^<]+)<\/div>/g;
+  const nameRegex = /data-slot="card-title"[^>]*>([^<]+)<\/div>/g;
+  const descRegex = /data-slot="card-description"[^>]*>([^<]+)<\/div>/g;
+  const priceRegex = /aria-label="Cost: \$(\d+)"/g;
 
   const names = [];
   const descs = [];
+  const prices = [];
   let m;
 
-  // Try aria-label based extraction
-  while ((m = headingRegex.exec(html)) !== null) names.push(m[2].trim());
-  while ((m = descAriaRegex.exec(html)) !== null) descs.push(m[2].trim());
-
-  // Method 2: data-slot attributes (backup)
-  if (names.length === 0) {
-    const nameRegex = /data-slot="card-title"[^>]*>([^<]+)<\/div>/g;
-    const descRegex = /data-slot="card-description"[^>]*>([^<]+)<\/div>/g;
-    while ((m = nameRegex.exec(html)) !== null) names.push(m[1].trim());
-    while ((m = descRegex.exec(html)) !== null) descs.push(m[1].trim());
-  }
-
-  // Try to extract prices (may not be in saved HTML)
-  const priceRegex = /aria-label="Cost: \$(\d+)"/g;
-  const prices = [];
+  while ((m = nameRegex.exec(html)) !== null) names.push(m[1].trim());
+  while ((m = descRegex.exec(html)) !== null) descs.push(m[1].trim());
   while ((m = priceRegex.exec(html)) !== null) prices.push(m[1]);
 
-  // Build plans array from whichever extraction worked
+  // Prices may not be in the saved HTML (loaded dynamically by JS after page load).
+  // Build plans using names+descs; only include prices if we actually found some.
   let count = Math.min(names.length, descs.length);
-  if (prices.length > 0) count = Math.min(count, prices.length);
+  const hasPrices = prices.length > 0;
+  if (hasPrices) count = Math.min(count, prices.length);
+
   for (let i = 0; i < count; i++) {
     plans.push({
       name: names[i],
       description: descs[i] || '',
-      price: prices[i] || ''
+      price: hasPrices ? prices[i] : ''
     });
   }
+
   // If no prices found, still return what we have from names+descs
   if (plans.length === 0 && names.length > 0) {
     for (let i = 0; i < names.length; i++) {
-      plans.push({
-        name: names[i],
-        description: (descs[i] || ''),
-        price: ''
-      });
+      plans.push({ name: names[i], description: descs[i] || '', price: '' });
     }
   }
 
