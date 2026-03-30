@@ -1335,14 +1335,27 @@ function extractBillyPlans(html) {
   while ((m = descRegex.exec(html)) !== null) descs.push(m[1].trim());
   while ((m = priceRegex.exec(html)) !== null) prices.push(m[1]);
 
-  // Zip them together — take the minimum length
-  const count = Math.min(names.length, descs.length, prices.length);
+  // Zip names and descriptions together — prices may be empty (loaded dynamically)
+  // Use the count of whichever is smaller: names+descs vs prices
+  let count = Math.min(names.length, descs.length);
+  // Only include prices if we actually found some
+  if (prices.length > 0) count = Math.min(count, prices.length);
   for (let i = 0; i < count; i++) {
     plans.push({
       name: names[i],
       description: descs[i] || '',
-      price: prices[i]
+      price: prices[i] || ''
     });
+  }
+  // If no prices found, still return what we have from names+descs
+  if (plans.length === 0 && names.length > 0) {
+    for (let i = 0; i < names.length; i++) {
+      plans.push({
+        name: names[i],
+        description: descs[i] || '',
+        price: ''
+      });
+    }
   }
 
   // Fallback: if regex didn't work, try stripping HTML and extracting from text
