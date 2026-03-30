@@ -310,35 +310,34 @@
   <div class="card">
     <div class="card-title">Step 2 — Configure Your Plan</div>
 
-    <!-- Plan source: manual or from Billy -->
+    <!-- Plan source: manual or from PowerSwitch -->
     <div id="billySection">
       <label for="planSource">How do you want to enter plan details?</label>
       <select id="planSource">
         <option value="manual">Enter plan details manually</option>
-        <option value="billy">Import from Billy URL</option>
         <option value="powerswitch">Import from PowerSwitch (saved HTML)</option>
       </select>
       <div id="billyUrlSection" class="hidden" style="margin-top:0.75rem">
         <div style="margin-bottom:0.75rem">
-          <label for="billyUrlInput" style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:0.3rem">Comparison URL</label>
+          <label for="billyUrlInput" style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:0.3rem">PowerSwitch URL</label>
           <div style="display:flex;gap:0.5rem">
-            <input type="url" id="billyUrlInput" placeholder="Paste comparison URL here..." style="flex:1;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem">
+            <input type="url" id="billyUrlInput" placeholder="Paste PowerSwitch comparison URL here..." style="flex:1;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem">
             <button id="billyDownloadBtn" class="btn btn-secondary" style="white-space:nowrap;padding:0 1rem">Download</button>
           </div>
           <div id="billyFetchStatus" style="font-size:0.8rem;margin-top:0.4rem;min-height:1.2rem;color:var(--text-dim)"></div>
         </div>
-        <div style="text-align:center;color:var(--text-dim);font-size:0.75rem;margin:0.5rem 0">— or upload a saved comparison page —</div>
+        <div style="text-align:center;color:var(--text-dim);font-size:0.75rem;margin:0.5rem 0">— or upload a saved PowerSwitch page —</div>
         <div>
           <label style="font-size:0.85rem;color:var(--text-dim);display:block;margin-bottom:0.3rem">Saved page (HTML file)</label>
           <input type="file" id="billyFileInput" accept=".html,.htm" style="font-size:0.85rem;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.4rem;width:100%">
-          <div style="font-size:0.72rem;color:var(--text-dim);margin-top:0.3rem">In Billy or PowerSwitch: right-click → Save As → Webpage, Complete → upload</div>
+          <div style="font-size:0.72rem;color:var(--text-dim);margin-top:0.3rem">In PowerSwitch: right-click → Save As → Webpage, Complete → upload</div>
         </div>
         <div id="billyPlanSelector" class="hidden" style="margin-top:0.75rem">
-          <label for="billyPlanSelect">Select a plan from Billy:</label>
+          <label for="billyPlanSelect">Select a plan:</label>
           <select id="billyPlanSelect" style="width:100%;padding:0.5rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text)"></select>
         </div>
         <div id="billyAutoFillWarning" class="hidden" style="margin-top:0.75rem;background:rgba(251,191,36,0.1);border:1px solid var(--yellow);border-radius:8px;padding:0.75rem;color:var(--yellow);font-size:0.82rem">
-          <strong>⚠️ Auto-filled from Billy — please verify the time periods and rates are correct before calculating.</strong>
+          <strong>⚠️ Auto-filled from PowerSwitch — please verify the time periods and rates are correct before calculating.</strong>
         </div>
       </div>
     </div>
@@ -1654,7 +1653,7 @@ billyUrlInput.addEventListener('input', () => {
 document.getElementById('billyDownloadBtn').addEventListener('click', async () => {
   const url = billyUrlInput.value.trim();
   if (!url || !url.includes('/compare/')) {
-    billyFetchStatus.textContent = 'Please paste a valid Billy comparison URL first.';
+    billyFetchStatus.textContent = 'Please paste a valid PowerSwitch comparison URL first.';
     return;
   }
 
@@ -1684,7 +1683,7 @@ document.getElementById('billyDownloadBtn').addEventListener('click', async () =
     billyPlanSelector.classList.remove('hidden');
     billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans from Billy${priceNote}. Select one to auto-fill.`;
   } catch(e) {
-    billyFetchStatus.textContent = 'Could not reach Billy. Try saving the page and uploading the HTML file instead.';
+    billyFetchStatus.textContent = 'Could not reach PowerSwitch. Try saving the page and uploading the HTML file instead.';
   }
 });
 
@@ -1705,16 +1704,13 @@ document.getElementById('billyFileInput').addEventListener('change', (e) => {
       if (billyPlansCache.length === 0) {
         const nameCount = (html.match(/data-slot="card-title"/g) || []).length;
         const psCount = (html.match(/TariffTable/g) || []).length;
-        billyFetchStatus.textContent = `Could not find plans. Found ${nameCount} Billy markers, ${psCount} PowerSwitch tariff tables. Make sure you saved the full results page.`;
+        billyFetchStatus.textContent = `Could not find plans. Found ${nameCount} PowerSwitch tariff tables. Make sure you saved the full results page.`;
         return;
       }
-      const priceNote = billyPlansCache.every(p => !p.price)
-        ? ' (daily price may not be available — enter manually)'
-        : '';
       billyPlanSelect.innerHTML = '<option value="">— Select a plan —</option>' +
-        billyPlansCache.map((p, i) => `<option value="${i}">${p.name}${p.price ? ' ($'+p.price+')' : ''}</option>`).join('');
+        billyPlansCache.map((p, i) => `<option value="${i}">${p.name}</option>`).join('');
       billyPlanSelector.classList.remove('hidden');
-      billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans from file${priceNote}. Select one to auto-fill.`;
+      billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans from file. Daily charge and rates will be filled when you select one.`;
     } catch(err) {
       billyFetchStatus.textContent = 'Error parsing file: ' + (err.message || 'unknown error');
     }
