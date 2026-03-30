@@ -1262,9 +1262,9 @@ billyUrlInput.addEventListener('input', debounce(async () => {
       return;
     }
     billyPlanSelect.innerHTML = '<option value="">— Select a plan —</option>' +
-      billyPlansCache.map((p, i) => `<option value="${i}">${p.name} (${p.price}/month)</option>`).join('');
+      billyPlansCache.map((p, i) => `<option value="${i}">${p.name}${p.price ? ' ($'+p.price+'/mo)' : ''}</option>`).join('');
     billyPlanSelector.classList.remove('hidden');
-    billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans. Select one to auto-fill.`;
+    billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans. Select one to auto-fill the plan type and time periods.`;
   } catch(e) {
     billyFetchStatus.textContent = 'Could not fetch that URL. Make sure the Billy page is publicly accessible.';
   }
@@ -1288,10 +1288,13 @@ document.getElementById('billyFileInput').addEventListener('change', (e) => {
         billyFetchStatus.textContent = 'Could not find plans in this file. Make sure you saved the full Billy webpage (File → Save As → Webpage, Complete).';
         return;
       }
+      const priceNote = billyPlansCache.every(p => !p.price)
+        ? ' (prices not available from saved file — enter them manually)'
+        : '';
       billyPlanSelect.innerHTML = '<option value="">— Select a plan —</option>' +
-        billyPlansCache.map((p, i) => `<option value="${i}">${p.name} (${p.price}/month)</option>`).join('');
+        billyPlansCache.map((p, i) => `<option value="${i}">${p.name}${p.price ? ' ($'+p.price+'/mo)' : ''}</option>`).join('');
       billyPlanSelector.classList.remove('hidden');
-      billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans from file. Select one to auto-fill.`;
+      billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans from file${priceNote}. Select one to auto-fill the plan type and time periods.`;
     } catch(err) {
       billyFetchStatus.textContent = 'Could not parse that file. Make sure you saved the full webpage (File → Save As → Webpage, Complete).';
     }
@@ -1311,56 +1314,52 @@ billyPlanSelect.addEventListener('change', () => {
 });
 
 function extractBillyPlans(html) {
-  // Extract plan names and descriptions from the Billy comparison page
-  // Plans appear in data attributes or structured HTML
+  // Extract plan names, descriptions, and prices from the Billy comparison page.
+  // The page uses data-slot attributes: card-title (name), card-description (desc),
+  // and aria-label="Cost: $XXX" for the monthly price.
   const plans = [];
-  // Try JSON data attributes first
-  const jsonMatches = html.match(/"name"\s*:\s*"([^"]+)"/g) || [];
-  // Try scraping from plan tiles
-  const nameMatches = html.match(/<h3[^>]*>([^<]+)<\/h3>/g) || [];
-  // Look for plan price patterns
-  const priceMatches = html.match(/\$\d+/g) || [];
-  // More targeted: look for the Next.js data
-  const nextDataMatch = html.match(/__NEXT_DATA__[^>]*>(.*?)<\/script>/s);
-  let planData = [];
-  if (nextDataMatch) {
-    try {
-      const parsed = JSON.parse(nextDataMatch[1]);
-      // Walk the JSON to find plan objects
-      planData = findPlansInObject(parsed);
-    } catch(e) {}
-  }
-  if (planData.length > 0) {
-    planData.forEach(p => {
-      if (p.name && p.price) {
-        plans.push({ name: p.name, price: p.price, description: p.description || '' });
-      }
+
+  // Extract all plan names
+  const nameRegex = /data-slot="card-title"[^>]*>([^<]+)<\/div>/g;
+  // Extract all descriptions
+  const descRegex = /data-slot="card-description"[^>]*>([^<]+)<\/div>/g;
+  // Extract all prices
+  const priceRegex = /aria-label="Cost: \$(\d+)"/g;
+
+  const names = [];
+  const descs = [];
+  const prices = [];
+
+  let m;
+  while ((m = nameRegex.exec(html)) !== null) names.push(m[1].trim());
+  while ((m = descRegex.exec(html)) !== null) descs.push(m[1].trim());
+  while ((m = priceRegex.exec(html)) !== null) prices.push(m[1]);
+
+  // Zip them together — take the minimum length
+  const count = Math.min(names.length, descs.length, prices.length);
+  for (let i = 0; i < count; i++) {
+    plans.push({
+      name: names[i],
+      description: descs[i] || '',
+      price: prices[i]
     });
   }
-  return plans;
-}
 
-function findPlansInObject(obj, depth = 0) {
-  if (depth > 20) return [];
-  if (Array.isArray(obj)) {
-    let result = [];
-    for (const item of obj) result = result.concat(findPlansInObject(item, depth + 1));
-    return result;
-  }
-  if (obj && typeof obj === 'object') {
-    // A plan object has name + price (or monthlyCost or similar)
-    if (obj.name && (obj.price || obj.monthlyCost || obj.estimatedCost)) {
-      return [{
-        name: obj.name,
-        price: obj.price || obj.monthlyCost || obj.estimatedCost || '',
-        description: obj.description || obj.tagline || ''
-      }];
+  // Fallback: if regex didn't work, try stripping HTML and extracting from text
+  if (plans.length === 0) {
+    // Last resort: extract plan-like text blocks from the page
+    const textOnly = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    // Look for $XXX patterns after plan name-like text
+    const fallback = textOnly.match(/(?:Plan Name|Title):\s*([A-Za-z0-9 +]+?)\s.*?\$(\d+)/gi);
+    if (fallback) {
+      fallback.forEach(m => {
+        const nm = m.match(/([A-Za-z0-9 +]+?)\s.*?\$(\d+)/i);
+        if (nm) plans.push({ name: nm[1].trim(), price: nm[2], description: '' });
+      });
     }
-    let result = [];
-    for (const key of Object.keys(obj)) result = result.concat(findPlansInObject(obj[key], depth + 1));
-    return result;
   }
-  return [];
+
+  return plans;
 }
 
 function parseBillyDescription(description) {
