@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Power Cost Calculator | EV Tim</title>
-  <meta name="description" content="Calculate your real EV charging costs from half-hourly power data. Supports Meridian, Genesis, Electric Kiwi, and all NZ power plans.">
+  <meta name="description" content="Calculate your real EV charging costs from half-hourly power data. Supports all NZ power companies — Meridian, Genesis, Mercury, Electric Kiwi, and more.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <style>
@@ -655,7 +655,7 @@ function handleFile(file) {
     complete: function(results) {
       csvData = parseCSV(results.data);
       if (csvData.length === 0) {
-        uploadError.innerHTML = '<div class="error-msg">No valid data rows found. Check that this is a Meridian half-hourly CSV.</div>';
+        uploadError.innerHTML = '<div class="error-msg">No valid data rows found. Check that this is a NZ power company half-hourly CSV.</div>';
         return;
       }
       dropZone.classList.add('hidden');
@@ -717,9 +717,27 @@ function parseCSV(rows) {
 
   if (hasNewMeridianFormat) {
     return parseMeridianEGCSV(rows);
-  } else {
-    return parseMeridianCSV(rows);
   }
+
+  // Detect Mercury / ICPCONS standard format:
+  // Col 7 has register codes like 'UN', 'RD', 'X' (not D/N/EG/7304/IN)
+  // Col 9 = period start, Col 10 = period end, Col 12 = kWh
+  let hasMercuryFormat = false;
+  for (let i = 1; i < Math.min(rows.length, 200); i++) {
+    if (rows[i].length > 12 && rows[i][0] === 'DET') {
+      const col7 = String(rows[i][7] || '').trim();
+      if (!['D','N','EG','7304','IN',''].includes(col7)) {
+        hasMercuryFormat = true;
+        break;
+      }
+    }
+  }
+
+  if (hasMercuryFormat) {
+    return parseMercuryCSV(rows);
+  }
+
+  return parseMeridianCSV(rows);
 }
 
 function parseSolarCSV(rows) {
@@ -833,6 +851,38 @@ function parseMeridianEGCSV(rows) {
   }
 
   return data.filter(d => d.type === 'consumption');
+}
+
+function parseMercuryCSV(rows) {
+  // Mercury / ICPCONS standard format:
+  // DET rows, col 7 = register code (UN/RD/X etc, NOT D/N/EG/7304/IN)
+  // Col 9 = period start, Col 10 = period end, Col 12 = kWh
+  // Timestamp format: D/MM/YYYY H:MM (no seconds)
+  isSolarFormat = false;
+  solarFeedIn = {};
+  exportReadings = [];
+  const data = [];
+  for (const row of rows) {
+    if (!row || row.length < 13) continue;
+    if (row[0] !== 'DET') continue;
+    const tsStr = (row[9] || '').trim();
+    const endStr = (row[10] || '').trim();
+    if (!tsStr) continue;
+    // Parse D/M/YYYY H:MM or DD/MM/YYYY HH:MM format
+    const parts = tsStr.match(/(\d+)\/(\d+)\/(\d+) (\d+):(\d+)/);
+    if (!parts) continue;
+    const day = parseInt(parts[1]);
+    const month = parseInt(parts[2]) - 1;
+    const year = parseInt(parts[3]);
+    const hour = parseInt(parts[4]);
+    const minute = parseInt(parts[5]);
+    const ts = new Date(year, month, day, hour, minute);
+    if (isNaN(ts.getTime())) continue;
+    const kwh = parseFloat(row[12]);
+    if (isNaN(kwh) || kwh < 0) continue;
+    data.push({ ts, kwh, type: 'consumption' });
+  }
+  return data;
 }
 
 function parseTimestamp(str) {
