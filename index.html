@@ -348,7 +348,7 @@
 
     <!-- FLAT RATE -->
     <div id="flatConfig" class="plan-config">
-      <label for="flatRate">Rate (cents/kWh)</label>
+      <label for="flatRate">Rate ($/kWh)</label>
       <input type="number" id="flatRate" placeholder="e.g. 28.5" step="0.01" min="0">
     </div>
 
@@ -356,11 +356,11 @@
     <div id="daynightConfig" class="plan-config hidden">
       <div class="grid-2">
         <div>
-          <label>Day Rate (cents/kWh)</label>
+          <label>Day Rate ($/kWh)</label>
           <input type="number" id="dayRate" placeholder="e.g. 32.0" step="0.01" min="0">
         </div>
         <div>
-          <label>Night Rate (cents/kWh)</label>
+          <label>Night Rate ($/kWh)</label>
           <input type="number" id="nightRate" placeholder="e.g. 18.0" step="0.01" min="0">
         </div>
       </div>
@@ -414,7 +414,7 @@
 
     <!-- FREE HOURS -->
     <div id="freehoursConfig" class="plan-config hidden">
-      <label for="baseRate">Base Rate (cents/kWh)</label>
+      <label for="baseRate">Base Rate ($/kWh)</label>
       <input type="number" id="baseRate" placeholder="e.g. 28.5" step="0.01" min="0">
       <div class="spacer"></div>
       <div class="section-label">Free Hour Ranges</div>
@@ -457,7 +457,7 @@
     <div id="eaLevyConfig" class="hidden">
       <div class="grid-2">
         <div>
-          <label>Levy Rate (cents/kWh)</label>
+          <label>Levy Rate ($/kWh)</label>
           <input type="number" id="eaLevyRate" placeholder="e.g. 0.11" step="0.001" min="0">
         </div>
         <div>
@@ -484,7 +484,7 @@
       </div>
       <!-- Flat export rate -->
       <div id="flatExportConfig">
-        <label for="feedInRate">Feed-in Rate (cents/kWh)</label>
+        <label for="feedInRate">Feed-in Rate ($/kWh)</label>
         <input type="number" id="feedInRate" placeholder="e.g. 10" step="0.01" min="0" value="10" style="width:100%;padding:0.6rem;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text)">
         <div style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem">What your power company pays you per kWh exported. NZ typical: 8–18 ¢/kWh.</div>
       </div>
@@ -540,7 +540,7 @@
         </div>
         <div class="result-card">
           <div class="value" id="effectiveRate">0</div>
-          <div class="label">Effective Rate (¢/kWh)</div>
+          <div class="label">Effective Rate ($/kWh)</div>
         </div>
         <div class="result-card">
           <div class="value" id="periodDays">0</div>
@@ -1009,7 +1009,7 @@ function addWeekdayExportPeriod(start, end, rate) {
   div.innerHTML = `
     <div><label>Start</label><input type="time" value="${start}" class="wfe-start"></div>
     <div><label>End</label><input type="time" value="${end}" class="wfe-end"></div>
-    <div><label>Rate (¢/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="wfe-rate"></div>
+    <div><label>Rate ($/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="wfe-rate"></div>
     <button class="btn btn-danger wfe-del">✕</button>`;
   container.appendChild(div);
   div.querySelector('.wfe-del').onclick = () => div.remove();
@@ -1022,7 +1022,7 @@ function addWeekendExportPeriod(start, end, rate) {
   div.innerHTML = `
     <div><label>Start</label><input type="time" value="${start}" class="efe-start"></div>
     <div><label>End</label><input type="time" value="${end}" class="efe-end"></div>
-    <div><label>Rate (¢/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="efe-rate"></div>
+    <div><label>Rate ($/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="efe-rate"></div>
     <button class="btn btn-danger efe-del">✕</button>`;
   container.appendChild(div);
   div.querySelector('.efe-del').onclick = () => div.remove();
@@ -1035,7 +1035,7 @@ function addSaturdayExportPeriod(start, end, rate) {
   div.innerHTML = `
     <div><label>Start</label><input type="time" value="${start}" class="sae-start"></div>
     <div><label>End</label><input type="time" value="${end}" class="sae-end"></div>
-    <div><label>Rate (¢/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="sae-rate"></div>
+    <div><label>Rate ($/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="sae-rate"></div>
     <button class="btn btn-danger sae-del">✕</button>`;
   container.appendChild(div);
   div.querySelector('.sae-del').onclick = () => div.remove();
@@ -1048,7 +1048,7 @@ function addSundayExportPeriod(start, end, rate) {
   div.innerHTML = `
     <div><label>Start</label><input type="time" value="${start}" class="sue-start"></div>
     <div><label>End</label><input type="time" value="${end}" class="sue-end"></div>
-    <div><label>Rate (¢/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="sue-rate"></div>
+    <div><label>Rate ($/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="sue-rate"></div>
     <button class="btn btn-danger sue-del">✕</button>`;
   container.appendChild(div);
   div.querySelector('.sue-del').onclick = () => div.remove();
@@ -1062,7 +1062,7 @@ function addWeekdayPeriod(start, end, rate) {
   div.innerHTML = `
     <div><label>Start</label><input type="time" value="${start}" data-wp-id="${id}" class="wp-start"></div>
     <div><label>End</label><input type="time" value="${end}" data-wp-id="${id}" class="wp-end"></div>
-    <div><label>Rate (¢/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="wp-rate"></div>
+    <div><label>Rate ($/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="wp-rate"></div>
     <button class="btn btn-danger wp-del" data-id="${id}">✕</button>`;
   container.appendChild(div);
   div.querySelector('.wp-del').onclick = () => div.remove();
@@ -1077,7 +1077,7 @@ function addWeekendPeriod(start, end, rate) {
   div.innerHTML = `
     <div><label>Start</label><input type="time" value="${start}" class="we-start"></div>
     <div><label>End</label><input type="time" value="${end}" class="we-end"></div>
-    <div><label>Rate (¢/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="we-rate"></div>
+    <div><label>Rate ($/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="we-rate"></div>
     <button class="btn btn-danger we-del">✕</button>`;
   container.appendChild(div);
   div.querySelector('.we-del').onclick = () => div.remove();
@@ -1092,7 +1092,7 @@ function addSaturdayPeriod(start, end, rate) {
   div.innerHTML = `
     <div><label>Start</label><input type="time" value="${start}" class="sa-start"></div>
     <div><label>End</label><input type="time" value="${end}" class="sa-end"></div>
-    <div><label>Rate (¢/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="sa-rate"></div>
+    <div><label>Rate ($/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="sa-rate"></div>
     <button class="btn btn-danger sa-del">✕</button>`;
   container.appendChild(div);
   div.querySelector('.sa-del').onclick = () => div.remove();
@@ -1107,7 +1107,7 @@ function addSundayPeriod(start, end, rate) {
   div.innerHTML = `
     <div><label>Start</label><input type="time" value="${start}" class="su-start"></div>
     <div><label>End</label><input type="time" value="${end}" class="su-end"></div>
-    <div><label>Rate (¢/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="su-rate"></div>
+    <div><label>Rate ($/kWh)</label><input type="number" value="${rate}" step="0.01" min="0" class="su-rate"></div>
     <button class="btn btn-danger su-del">✕</button>`;
   container.appendChild(div);
   div.querySelector('.su-del').onclick = () => div.remove();
@@ -1149,10 +1149,10 @@ function updatePlanSummary() {
   if (name) html += `<strong>${name}</strong> · `;
   html += `<strong>${planType.options[planType.selectedIndex].text}</strong><br>`;
   if (type === 'flat') {
-    html += `Flat rate: ${document.getElementById('flatRate').value || '?'} ¢/kWh`;
+    html += `Flat rate: ${document.getElementById('flatRate').value || '?'} $/kWh`;
   }
   if (type === 'daynight') {
-    html += `Day: ${document.getElementById('dayRate').value || '?'} ¢/kWh · Night: ${document.getElementById('nightRate').value || '?'} ¢/kWh (${document.getElementById('nightStart').value}–${document.getElementById('nightEnd').value})`;
+    html += `Day: ${document.getElementById('dayRate').value || '?'} $/kWh · Night: ${document.getElementById('nightRate').value || '?'} $/kWh (${document.getElementById('nightStart').value}–${document.getElementById('nightEnd').value})`;
   }
   if (type === 'tou') {
     const periods = getWeekdayPeriods();
@@ -1164,7 +1164,7 @@ function updatePlanSummary() {
   }
   if (type === 'freehours') {
     const ranges = getFreeHourRanges();
-    html += `Base: ${document.getElementById('baseRate').value || '?'} ¢/kWh · ${ranges.length} free range(s)`;
+    html += `Base: ${document.getElementById('baseRate').value || '?'} $/kWh · ${ranges.length} free range(s)`;
   }
   const dc = document.getElementById('dailyCharge').value;
   const dcUnit = document.getElementById('dailyChargeUnit').value;
@@ -1174,7 +1174,7 @@ function updatePlanSummary() {
     html += `<br>Supply charge: ${dc}${unitLabel}`;
   }
   if (document.getElementById('eaLevyEnabled').checked) {
-    html += `<br>EA Levy: ${document.getElementById('eaLevyRate').value || '?'} ¢/kWh`;
+    html += `<br>EA Levy: ${document.getElementById('eaLevyRate').value || '?'} $/kWh`;
   }
   summary.innerHTML = html;
 }
@@ -1482,7 +1482,542 @@ function calculate() {
   const grandTotal = totalCost - feedInCredit + eaLevyCost + dailyChargeCost;
   document.getElementById('totalCost').textContent = '$' + grandTotal.toFixed(2);
   document.getElementById('totalKwh').textContent = totalKwh.toFixed(1) + ' kWh';
-  document.getElementById('effectiveRate').textContent = effectiveRate.toFixed(2) + ' ¢';
+  document.getElementById('effectiveRate').textContent = '$' + (effectiveRate / 100).toFixed(2);
+  document.getElementById('periodDays').textContent = dayCount;
+
+  // Breakdown by period
+  let breakdownHtml = '<div class="section-label">Cost Breakdown</div><div class="results-grid">';
+  for (const [key, val] of Object.entries(byPeriodType)) {
+    breakdownHtml += `
+      <div class="result-card">
+        <div class="value">$${val.cost.toFixed(2)}</div>
+        <div class="label">${key.toUpperCase()} · ${val.kwh.toFixed(1)} kWh</div>
+      </div>`;
+  }
+  if (feedInCredit > 0) {
+    breakdownHtml += `
+      <div class="result-card green">
+        <div class="value">-$${feedInCredit.toFixed(2)}</div>
+        <div class="label">FEED-IN CREDIT · ${totalFeedInKwh.toFixed(1)} kWh</div>
+      </div>`;
+  }
+  breakdownHtml += `
+      <div class="result-card">
+        <div class="value">$${dailyChargeCost.toFixed(2)}</div>
+        <div class="label">SUPPLY CHARGE · ${dayCount} days</div>
+      </div>`;
+  if (eaLevyCost > 0) {
+    breakdownHtml += `
+      <div class="result-card">
+        <div class="value">$${eaLevyCost.toFixed(2)}</div>
+        <div class="label">EA LEVY · ${totalKwh.toFixed(1)} kWh</div>
+      </div>`;
+  }
+  breakdownHtml += '</div>';
+  document.getElementById('breakdownSection').innerHTML = breakdownHtml;
+
+  resultsSection.classList.remove('hidden');
+
+  // Save for comparison
+  if (savedResult) showComparison();
+}
+
+// ─── Compare ─────────────────────────────────────────────────────────────────
+document.getElementById('saveResult').addEventListener('click', () => {
+  if (!resultsSection.classList.contains('hidden')) {
+    savedResult = {
+      name: document.getElementById('planName').value || 'Plan A',
+      cost: document.getElementById('totalCost').textContent,
+      kwh: document.getElementById('totalKwh').textContent,
+      rate: document.getElementById('effectiveRate').textContent
+    };
+    showComparison();
+  }
+});
+
+document.getElementById('clearSaved').addEventListener('click', () => {
+  savedResult = null;
+  document.getElementById('comparisonSection').classList.add('hidden');
+  document.getElementById('comparisonSection').innerHTML = '';
+});
+
+function showComparison() {
+  if (!savedResult) return;
+  const currentCost = parseFloat(document.getElementById('totalCost').textContent.replace('$',''));
+  const savedCost = parseFloat(savedResult.cost.replace('$',''));
+  const diff = currentCost - savedCost;
+  const sign = diff >= 0 ? '+' : '';
+  const comparison = document.getElementById('comparisonSection');
+  comparison.classList.remove('hidden');
+  comparison.innerHTML = `
+    <div class="results-grid">
+      <div class="result-card">
+        <div class="value">${savedResult.cost}</div>
+        <div class="label">${savedResult.name}</div>
+      </div>
+      <div class="result-card ${diff <= 0 ? 'green' : ''}">
+        <div class="value">${document.getElementById('totalCost').textContent}</div>
+        <div class="label">${document.getElementById('planName').value || 'Plan B'}</div>
+      </div>
+      <div class="result-card ${diff <= 0 ? 'green' : ''}">
+        <div class="value">${sign}$${diff.toFixed(2)}</div>
+        <div class="label">Difference</div>
+      </div>
+    </div>`;
+}
+
+// ─── Theme Toggle ───────────────────────────────────────────────────────────
+const themeToggle = document.getElementById('themeToggle');
+const themeIcon = document.getElementById('themeIcon');
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  themeIcon.textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
+  localStorage.setItem('evCalcTheme', theme);
+}
+
+themeToggle.addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
+// Apply saved theme or default dark
+try {
+  const savedTheme = localStorage.getItem('evCalcTheme') || 'dark';
+  applyTheme(savedTheme);
+} catch(e) { applyTheme('dark'); }
+
+// ─── TOU Overlap Validation ───────────────────────────────────────────────
+function periodsOverlap(periods) {
+  // Returns true if any two periods overlap in time-of-day.
+  // Overnight periods (crossing midnight) are expanded to the next day for comparison.
+  // e.g. 21:00→07:00 becomes 21:00→31:00 (where 31:00 = 07:00 next day)
+  for (let i = 0; i < periods.length; i++) {
+    for (let j = i + 1; j < periods.length; j++) {
+      const a = periods[i];
+      const b = periods[j];
+      let aStart = timeToMinutes(a.start);
+      let aEnd = timeToMinutes(a.end);
+      let bStart = timeToMinutes(b.start);
+      let bEnd = timeToMinutes(b.end);
+
+      // Expand overnight periods to the next day (add 24h to end)
+      if (aEnd < aStart) aEnd += 24 * 60;
+      if (bEnd < bStart) bEnd += 24 * 60;
+
+      // Now check if a and b overlap on the same timeline
+      // a overlaps b if aStart < bEnd AND aEnd > bStart
+      if (aStart < bEnd && aEnd > bStart) return true;
+    }
+  }
+  return false;
+}
+
+function validatePeriods() {
+  const type = planType.value;
+  if (type !== 'tou') return true;
+
+  const weekdayPeriods = getWeekdayPeriods();
+  const weekendMode = document.getElementById('weekendMode')?.value || 'same';
+
+  // Remove existing error
+  const existing = document.getElementById('touOverlapError');
+  if (existing) existing.remove();
+
+  let errorMsg = '';
+
+  if (periodsOverlap(weekdayPeriods)) {
+    errorMsg = '⚠️ Your weekday periods overlap. Each time period should be covered by only one rate.';
+  } else if (weekendMode === 'combined' && periodsOverlap(getWeekendPeriods())) {
+    errorMsg = '⚠️ Your weekend periods overlap. Each time period should be covered by only one rate.';
+  } else if (weekendMode === 'separate') {
+    if (periodsOverlap(getSaturdayPeriods())) {
+      errorMsg = '⚠️ Your Saturday periods overlap. Each time period should be covered by only one rate.';
+    } else if (periodsOverlap(getSundayPeriods())) {
+      errorMsg = '⚠️ Your Sunday periods overlap. Each time period should be covered by only one rate.';
+    }
+  }
+
+  if (errorMsg) {
+    const div = document.createElement('div');
+    div.id = 'touOverlapError';
+    div.style.cssText = 'background:rgba(248,113,113,0.1);border:1px solid var(--red);border-radius:8px;padding:0.75rem 1rem;color:var(--red);font-size:0.85rem;margin-top:0.75rem';
+    div.textContent = errorMsg;
+    document.getElementById('touConfig').appendChild(div);
+    return false;
+  }
+  return true;
+}
+
+// Check periods whenever they change
+document.getElementById('weekdayPeriods')?.addEventListener('input', validatePeriods);
+document.getElementById('weekendPeriods')?.addEventListener('input', validatePeriods);
+document.getElementById('saturdayPeriods')?.addEventListener('input', validatePeriods);
+document.getElementById('sundayPeriods')?.addEventListener('input', validatePeriods);
+document.getElementById('addWeekdayPeriod')?.addEventListener('click', () => {
+  setTimeout(validatePeriods, 0);
+});
+
+// ─── Billy URL Import ─────────────────────────────────────────────────────────
+const planSourceSelect = document.getElementById('planSource');
+const billyUrlSection = document.getElementById('billyUrlSection');
+const billyFetchStatus = document.getElementById('billyFetchStatus');
+const billyPlanSelector = document.getElementById('billyPlanSelector');
+const billyPlanSelect = document.getElementById('billyPlanSelect');
+const billyAutoFillWarning = document.getElementById('billyAutoFillWarning');
+
+planSourceSelect.addEventListener('change', () => {
+  const isImport = planSourceSelect.value === 'billy' || planSourceSelect.value === 'powerswitch';
+  billyUrlSection.classList.toggle('hidden', !isImport);
+  if (!isImport) {
+    billyFetchStatus.textContent = '';
+    billyPlanSelector.classList.add('hidden');
+    billyAutoFillWarning.classList.add('hidden');
+    billyPlanSelect.innerHTML = '';
+  }
+});
+
+let billyPlansCache = [];
+
+// Upload a saved PowerSwitch comparison page (right-click → Save As → Webpage, Complete)
+document.getElementById('billyFileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  billyFetchStatus.textContent = 'Parsing uploaded Billy page...';
+  billyPlanSelector.classList.add('hidden');
+  billyAutoFillWarning.classList.add('hidden');
+  billyPlansCache = [];
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const html = ev.target.result;
+      billyPlansCache = extractBillyPlans(html);
+      if (billyPlansCache.length === 0) {
+        const nameCount = (html.match(/data-slot="card-title"/g) || []).length;
+        const psCount = (html.match(/TariffTable/g) || []).length;
+        billyFetchStatus.textContent = `Could not find plans. Found ${nameCount} PowerSwitch tariff tables. Make sure you saved the full results page.`;
+        return;
+      }
+      billyPlanSelect.innerHTML = '<option value="">— Select a plan —</option>' +
+        billyPlansCache.map((p, i) => `<option value="${i}">${p.name}</option>`).join('');
+      billyPlanSelector.classList.remove('hidden');
+      billyFetchStatus.textContent = `Found ${billyPlansCache.length} plans from file. Daily charge and rates will be filled when you select one.`;
+    } catch(err) {
+      billyFetchStatus.textContent = 'Error parsing file: ' + (err.message || 'unknown error');
+    }
+  };
+  reader.readAsText(file);
+});
+
+billyPlanSelect.addEventListener('change', () => {
+  const idx = parseInt(billyPlanSelect.value);
+  if (isNaN(idx)) {
+    billyAutoFillWarning.classList.add('hidden');
+    return;
+  }
+  const plan = billyPlansCache[idx];
+  autoFillFromBillyPlan(plan);
+  billyAutoFillWarning.classList.remove('hidden');
+});
+
+function extractBillyPlans(html) {
+  // Try PowerSwitch format first (has TariffTable class)
+  if (html.includes('TariffTable')) {
+    return extractPowerSwitchPlans(html);
+  }
+
+  // Fall back to Billy format (data-slot attributes)
+  const plans = [];
+
+  const nameRegex = /data-slot="card-title"[^>]*>([^<]+)<\/div>/g;
+  const descRegex = /data-slot="card-description"[^>]*>([^<]+)<\/div>/g;
+  const priceRegex = /aria-label="Cost: \$(\d+)"/g;
+
+  const names = [];
+  const descs = [];
+  const prices = [];
+  let m;
+
+  while ((m = nameRegex.exec(html)) !== null) names.push(m[1].trim());
+  while ((m = descRegex.exec(html)) !== null) descs.push(m[1].trim());
+  while ((m = priceRegex.exec(html)) !== null) prices.push(m[1]);
+
+  // Prices may not be in saved HTML (loaded dynamically)
+  let count = Math.min(names.length, descs.length);
+  const hasPrices = prices.length > 0;
+  if (hasPrices) count = Math.min(count, prices.length);
+
+  for (let i = 0; i < count; i++) {
+    plans.push({
+      name: names[i],
+      description: descs[i] || '',
+      price: hasPrices ? prices[i] : '',
+      rates: {}
+    });
+  }
+
+  // If no prices found, still return what we have from names+descs
+  if (plans.length === 0 && names.length > 0) {
+    for (let i = 0; i < names.length; i++) {
+      plans.push({ name: names[i], description: descs[i] || '', price: '', rates: {} });
+    }
+  }
+
+  return plans;
+}
+
+function extractPowerSwitchPlans(html) {
+  // PowerSwitch format: plans are in <h3> tags followed by <table class="TariffTable">
+  // Each row in the table is <tr><td>Label</td><td class="tr">Value</td></tr>
+  const plans = [];
+  const h3Matches = html.matchAll(/<h3[^>]*>([^<]+)<\/h3>/g);
+
+  for (const match of h3Matches) {
+    const planName = match[1].trim();
+    if (planName === 'Filter your results' || planName === 'Plan details') continue;
+
+    // Find the next tariff table after this h3
+    const afterH3 = html.substring(match.index);
+    const tableStart = afterH3.indexOf('<table class="TariffTable');
+    if (tableStart < 0) continue;
+
+    const afterTable = afterH3.substring(tableStart);
+    const tableEnd = afterTable.indexOf('</table>');
+    if (tableEnd < 0) continue;
+
+    const tableHtml = afterTable.substring(0, tableEnd + 8);
+
+    // Extract rows
+    const tariffRows = tableHtml.matchAll(/<tr><td>([^<]+)<\/td><td class="tr">([^<]+)<\/td><\/tr>/g);
+    const rates = {};
+    for (const row of tariffRows) {
+      const label = row[1].trim();
+      const value = row[2].trim();
+      rates[label] = value;
+    }
+
+    if (Object.keys(rates).length > 0) {
+      // Parse rates into structured format
+      const parsed = parsePowerSwitchRates(planName, rates);
+      plans.push({
+        name: planName,
+        description: '',
+        price: rates['Daily costs'] || rates['Plan Fixed Charge'] || rates['Daily charge'] || '',
+        rates: parsed
+      });
+    }
+  }
+
+  return plans;
+}
+
+function parsePowerSwitchRates(planName, rates) {
+  // Convert PowerSwitch rate table into calculator-friendly format
+  const result = {
+    type: 'flat', // default
+    daily: 0,
+    periods: [],
+    freeHours: []
+  };
+
+  // Parse a rate value that may be in dollars ($0.30) or cents (0.30)
+  // If it starts with $, it's dollars -> convert to cents by multiplying 100
+  // Otherwise it's already cents -> use as-is
+  const parseRate = (val) => {
+    if (!val) return 0;
+    const str = String(val).trim();
+    const num = parseFloat(str.replace('$',''));
+    if (isNaN(num)) return 0;
+    return str.startsWith('$') ? num * 100 : num;
+  };
+
+  // Extract daily charge (always in dollars, no *100)
+  result.daily = parseFloat(rates['Daily costs']?.replace('$','') || rates['Plan Fixed Charge']?.replace('$','') || rates['Daily charge']?.replace('$','') || '0');
+
+  // Check for Free Hours plans
+  const freeKeys = Object.keys(rates).filter(k => k.includes('Free:') || k.includes('Free:'));
+  if (freeKeys.length > 0) {
+    result.type = 'freehours';
+    freeKeys.forEach(fk => {
+      const timeMatch = rates[fk].match(/(\d+(?::\d+)?)\s*(?:am|pm)?\s*-\s*(\d+(?::\d+)?)\s*(?:am|pm)?/i);
+      if (timeMatch) {
+        // Parse times - this is a simplified version
+        result.freeHours.push({ period: fk.replace('Free:', '').trim(), rate: 0 });
+      }
+    });
+    return result;
+  }
+
+  // Check for Peak/Off-Peak (TOU)
+  const peakRate = rates['All Inclusive Plan variable charge Peak'] || rates['Peak - Controlled'] || rates['Peak'];
+  const offPeakRate = rates['All Inclusive Plan variable charge Off Peak'] || rates['Off Peak - Controlled'] || rates['Off Peak'];
+
+  if (peakRate && offPeakRate && peakRate !== offPeakRate) {
+    result.type = 'tou';
+    // NZ default: off-peak/night is 9pm-7am, peak is everything else
+    result.periods = [
+      { start: '21:00', end: '07:00', rate: parseRate(offPeakRate) }, // night/off-peak default 9pm-7am
+      { start: '07:00', end: '21:00', rate: parseRate(peakRate) }  // peak day 7am-9pm default
+    ];
+  } else if (peakRate) {
+    // Same rate for all day - could be flat or day/night with same rate
+    result.type = 'flat';
+    result.periods = [{ start: '00:00', end: '00:00', rate: parseRate(peakRate) }];
+  }
+
+  return result;
+}
+
+function parseBillyDescription(description) {
+  // Parse plan description to extract rate periods and guess plan type
+  const desc = (description || '').toLowerCase();
+  const result = { planType: 'tou', periods: [], weekendMode: 'same' };
+
+  // Free Sunday detection
+  if (desc.includes('free sundays') || desc.includes('free sunday')) {
+    result.planType = 'freehours';
+    result.freeRanges = [{ start: '00:00', end: '23:59' }]; // All day Sunday free
+    return result;
+  }
+
+  // Night period detection
+  const nightMatch = desc.match(/(\d+)\s*(?:pm|am)\s*[-–to]+\s*(\d+)\s*(?:pm|am)/);
+  let nightStart = null, nightEnd = null;
+  if (desc.includes('night') || desc.includes('overnight')) {
+    // Try to extract night hours e.g. "9pm to 7am"
+    const nightTimes = desc.match(/(?:9|10|11|12)\s*(?:pm|am)\s*(?:[-–to]\s*)?(?:7|6|5|4|3|2|1)\s*(?:am|pm)/);
+    // Heuristic: common night periods
+    if (desc.includes('9pm') && desc.includes('7am')) { nightStart = '21:00'; nightEnd = '07:00'; }
+    else if (desc.includes('10pm') && desc.includes('7am')) { nightStart = '22:00'; nightEnd = '07:00'; }
+    else if (desc.includes('11pm') && desc.includes('7am')) { nightStart = '23:00'; nightEnd = '07:00'; }
+  }
+
+  // Peak/off-peak detection
+  const hasPeak = desc.includes('peak') || desc.includes('day rate') || desc.includes('peak rate');
+  const hasOffPeak = desc.includes('off-peak') || desc.includes('night rate') || desc.includes('shoulder');
+
+  if (nightStart && nightEnd) {
+    if (hasPeak || hasOffPeak) {
+      result.planType = 'tou';
+      result.periods = [
+        { start: nightStart, end: nightEnd, rate: 18.0, label: 'Night' },
+        { start: nightEnd, end: nightStart, rate: 28.5, label: 'Day' }
+      ];
+    } else {
+      result.planType = 'daynight';
+      result.nightStart = nightStart;
+      result.nightEnd = nightEnd;
+      result.dayRate = 28.5;
+      result.nightRate = 18.0;
+    }
+  } else if (hasPeak && hasOffPeak) {
+    result.planType = 'tou';
+    result.periods = [
+      { start: '07:00', end: '23:00', rate: 28.5, label: 'Peak' },
+      { start: '23:00', end: '07:00', rate: 18.0, label: 'Off-peak' }
+    ];
+  }
+
+  return result;
+}
+
+function autoFillFromBillyPlan(plan) {
+  // plan can come from either Billy (has description) or PowerSwitch (has rates)
+  // Check which format we have
+  if (plan.rates && Object.keys(plan.rates).length > 0) {
+    // PowerSwitch format - plan has parsed rates
+    autoFillFromPowerSwitchPlan(plan);
+  } else {
+    // Billy format - plan has description
+    const parsed = parseBillyDescription(plan.description);
+    planType.value = parsed.planType;
+    planType.dispatchEvent(new Event('change'));
+
+    if (parsed.planType === 'daynight' && parsed.nightStart) {
+      document.getElementById('dayRate').value = parsed.dayRate;
+      document.getElementById('nightRate').value = parsed.nightRate;
+      document.getElementById('nightStart').value = parsed.nightStart;
+      document.getElementById('nightEnd').value = parsed.nightEnd;
+    } else if (parsed.planType === 'tou' && parsed.periods.length > 0) {
+      const wContainer = document.getElementById('weekdayPeriods');
+      wContainer.innerHTML = '';
+      parsed.periods.forEach(p => addWeekdayPeriod(p.start, p.end, p.rate));
+      document.getElementById('addWeekdayPeriod').onclick = () => addWeekdayPeriod('00:00', '00:00', 0);
+    }
+  }
+
+  // Also fill in daily charge if available
+  if (plan.price) {
+    // Price might be "$2.67/day" or just "$2.67"
+    const dailyMatch = plan.price.match(/\$?([\d.]+)/);
+    if (dailyMatch) {
+      document.getElementById('dailyCharge').value = dailyMatch[1];
+    }
+  }
+}
+
+function autoFillFromPowerSwitchPlan(plan) {
+  // PowerSwitch has already parsed the rates - fill them in
+  const rates = plan.rates;
+
+  // Set plan type
+  planType.value = rates.type || 'flat';
+  planType.dispatchEvent(new Event('change'));
+
+  // Set daily charge
+  if (rates.daily > 0) {
+    document.getElementById('dailyCharge').value = rates.daily.toFixed(2);
+  }
+
+  if (rates.type === 'flat') {
+    // Flat rate - use the single period rate
+    if (rates.periods && rates.periods.length > 0) {
+      document.getElementById('flatRate').value = (rates.periods[0].rate / 100).toFixed(2);
+    }
+  } else if (rates.type === 'tou') {
+    // TOU - fill in the periods
+    const wContainer = document.getElementById('weekdayPeriods');
+    wContainer.innerHTML = '';
+    if (rates.periods) {
+      rates.periods.forEach(p => {
+        addWeekdayPeriod(p.start, p.end, p.rate / 100);
+      });
+    }
+    document.getElementById('addWeekdayPeriod').onclick = () => addWeekdayPeriod('00:00', '00:00', 0);
+  } else if (rates.type === 'freehours') {
+    // Free hours
+    planType.value = 'freehours';
+    planType.dispatchEvent(new Event('change'));
+    // Free hours would need more parsing - for now, just set plan type
+  }
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+initTOU();
+initFreeHours();
+
+// Load from localStorage
+try {
+  const saved = localStorage.getItem('evCalcConfig');
+  if (saved) {
+    const cfg = JSON.parse(saved);
+    // restore basic values if present
+  }
+} catch(e) {}
+
+window.addEventListener('beforeunload', () => {
+  // could save config to localStorage here
+});
+</script>
+</body>
+</html>
+;
   document.getElementById('periodDays').textContent = dayCount;
 
   // Breakdown by period
